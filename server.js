@@ -1,4 +1,3 @@
-// server.js - Backend Node.js
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
@@ -6,501 +5,615 @@ const cron = require('node-cron');
 const fetch = require('node-fetch');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
 
-// Configuração do banco de dados PostgreSQL
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
-
+// Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Dados históricos de frequência
-const FREQUENCY_DATA = [
-  { num: 20, freq: 2246 }, { num: 10, freq: 2234 }, { num: 25, freq: 2233 },
-  { num: 11, freq: 2208 }, { num: 13, freq: 2191 }, { num: 24, freq: 2185 },
-  { num: 14, freq: 2180 }, { num: 1, freq: 2179 }, { num: 4, freq: 2175 },
-  { num: 12, freq: 2168 }, { num: 3, freq: 2167 }, { num: 2, freq: 2155 },
-  { num: 5, freq: 2154 }, { num: 22, freq: 2154 }, { num: 15, freq: 2146 },
-  { num: 9, freq: 2145 }, { num: 18, freq: 2144 }, { num: 19, freq: 2143 },
-  { num: 21, freq: 2136 }, { num: 7, freq: 2123 }, { num: 17, freq: 2121 },
-  { num: 6, freq: 2107 }, { num: 23, freq: 2102 }, { num: 8, freq: 2087 },
-  { num: 16, freq: 2057 }
-];
+// Database connection
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
 
-// Valor real da aposta Lotofácil (15 números)
-const BET_COST = 3.50;
-
-// Tabela de prêmios REAIS da Lotofácil
-const PRIZE_TABLE = { 
-  15: 1500000, // Variável - média histórica
-  14: 1500,    // Variável - média histórica
-  13: 30,      // Fixo
-  12: 12,      // Fixo
-  11: 6        // Fixo
-};
-
-const STRATEGIES = ['weighted', 'balanced', 'moderate', 'distributed', 'intelligent', 'random'];
-
-// Funções de geração de apostas
-const shuffle = (array) => {
-  const arr = [...array];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-};
-
-const generateWeighted = () => {
-  const weighted = [];
-  FREQUENCY_DATA.forEach(({ num, freq }) => {
-    const weight = Math.floor(freq / 100);
-    for (let i = 0; i < weight; i++) weighted.push(num);
-  });
-  return [...new Set(shuffle(weighted))].slice(0, 15).sort((a, b) => a - b);
-};
-
-const generateBalanced = () => {
-  const top12 = FREQUENCY_DATA.slice(0, 12).map(d => d.num);
-  const bottom13 = FREQUENCY_DATA.slice(12).map(d => d.num);
-  const middle = FREQUENCY_DATA.slice(6, 19).map(d => d.num);
-  const selected = [
-    ...shuffle(top12).slice(0, 8),
-    ...shuffle(bottom13).slice(0, 5),
-    ...shuffle(middle).slice(0, 2)
-  ];
-  return [...new Set(selected)].sort((a, b) => a - b).slice(0, 15);
-};
-
-const generateModerate = () => {
-  const moderate = FREQUENCY_DATA.slice(5, 20).map(d => d.num);
-  return shuffle(moderate).slice(0, 15).sort((a, b) => a - b);
-};
-
-const generateDistributed = () => {
-  const ranges = [[1, 5], [6, 10], [11, 15], [16, 20], [21, 25]];
-  const selected = [];
-  ranges.forEach(([min, max]) => {
-    const rangeNums = Array.from({ length: max - min + 1 }, (_, i) => min + i);
-    const count = Math.floor(Math.random() * 2) + 2;
-    selected.push(...shuffle(rangeNums).slice(0, count));
-  });
-  return [...new Set(selected)].sort((a, b) => a - b).slice(0, 15);
-};
-
-const generateIntelligent = () => {
-  const top15 = FREQUENCY_DATA.slice(0, 15).map(d => d.num);
-  const rest = FREQUENCY_DATA.slice(15).map(d => d.num);
-  let selected = [...shuffle(top15).slice(0, 9), ...shuffle(rest).slice(0, 6)];
-  const even = selected.filter(n => n % 2 === 0);
-  if (even.length < 6) {
-    const moreEven = Array.from({ length: 25 }, (_, i) => i + 1)
-      .filter(n => n % 2 === 0 && !selected.includes(n));
-    selected.push(...shuffle(moreEven).slice(0, 6 - even.length));
-  }
-  return [...new Set(selected)].sort((a, b) => a - b).slice(0, 15);
-};
-
-const generateRandom = () => {
-  const allNums = Array.from({ length: 25 }, (_, i) => i + 1);
-  return shuffle(allNums).slice(0, 15).sort((a, b) => a - b);
-};
-
-const GENERATORS = {
-  weighted: generateWeighted,
-  balanced: generateBalanced,
-  moderate: generateModerate,
-  distributed: generateDistributed,
-  intelligent: generateIntelligent,
-  random: generateRandom
-};
-
-// Inicializar banco de dados
-async function initDatabase() {
-  const client = await pool.connect();
-  try {
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS bets (
-        id SERIAL PRIMARY KEY,
-        strategy VARCHAR(50) NOT NULL,
-        numbers INTEGER[] NOT NULL,
-        date DATE NOT NULL,
-        result_numbers INTEGER[],
-        matches INTEGER,
-        prize DECIMAL(10, 2) DEFAULT 0,
-        contest_number VARCHAR(20),
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS results (
-        id SERIAL PRIMARY KEY,
-        contest_number VARCHAR(20) UNIQUE NOT NULL,
-        numbers INTEGER[] NOT NULL,
-        date DATE NOT NULL,
-        total_prize DECIMAL(10, 2) DEFAULT 0,
-        bets_checked INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_bets_date ON bets(date);
-      CREATE INDEX IF NOT EXISTS idx_bets_strategy ON bets(strategy);
-      CREATE INDEX IF NOT EXISTS idx_results_contest ON results(contest_number);
-    `);
-
-    console.log('✅ Database initialized successfully');
-  } catch (error) {
-    console.error('❌ Error initializing database:', error);
-  } finally {
-    client.release();
-  }
-}
-
-// Buscar resultado da API
-async function fetchLatestResult() {
-  const APIs = [
-    'https://loteriascaixa-api.herokuapp.com/api/lotofacil/latest',
-    'https://api.guidi.dev.br/loteria/lotofacil/ultimo'
-  ];
-
-  for (const apiUrl of APIs) {
+// Initialize database
+async function initializeDatabase() {
     try {
-      const response = await fetch(apiUrl);
-      if (!response.ok) continue;
-      
-      const data = await response.json();
-      let contest, numbers, date;
-      
-      if (data.concurso || data.numero) {
-        contest = (data.concurso || data.numero).toString();
-        numbers = data.dezenas || data.listaDezenas || data.dezenasSorteadasOrdemSorteio || [];
-        date = data.dataApuracao || data.data || new Date().toISOString().split('T')[0];
-      }
-      
-      if (numbers && numbers.length === 15) {
-        const nums = numbers.map(n => typeof n === 'string' ? parseInt(n) : n);
-        return { contest, numbers: nums, date };
-      }
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS bets (
+                id SERIAL PRIMARY KEY,
+                strategy VARCHAR(50) NOT NULL,
+                numbers INTEGER[] NOT NULL,
+                date DATE NOT NULL,
+                result_numbers INTEGER[],
+                matches INTEGER,
+                prize DECIMAL(10, 2) DEFAULT 0,
+                contest_number INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS results (
+                id SERIAL PRIMARY KEY,
+                contest_number INTEGER UNIQUE NOT NULL,
+                numbers INTEGER[] NOT NULL,
+                date DATE NOT NULL,
+                total_prize DECIMAL(10, 2) DEFAULT 0,
+                bets_checked INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        console.log('✅ Database initialized successfully');
     } catch (error) {
-      console.log(`Erro na API ${apiUrl}:`, error.message);
-      continue;
+        console.error('❌ Error initializing database:', error);
     }
-  }
-  
-  return null;
 }
 
-// Gerar apostas diárias
-async function generateDailyBets() {
-  const client = await pool.connect();
-  try {
-    const today = new Date().toISOString().split('T')[0];
+// Pricing configuration
+const PRICING = {
+    betCost: 3.50,
+    prizes: {
+        11: 6.00,
+        12: 12.00,
+        13: 30.00,
+        14: 1500.00,
+        15: 1500000.00
+    }
+};
+
+// ==================== BET GENERATION FUNCTIONS ====================
+
+// Função auxiliar para garantir 15 números únicos
+function ensureExactly15Numbers(numbers) {
+    const unique = [...new Set(numbers)];
     
-    // Verificar se já tem apostas hoje
-    const existingBets = await client.query(
-      'SELECT COUNT(*) FROM bets WHERE date = $1',
-      [today]
-    );
-
-    if (parseInt(existingBets.rows[0].count) > 0) {
-      console.log(`✓ Apostas já geradas para ${today}`);
-      return;
+    if (unique.length === 15) {
+        return unique.sort((a, b) => a - b);
     }
-
-    // Gerar uma aposta para cada estratégia
-    for (const strategy of STRATEGIES) {
-      const numbers = GENERATORS[strategy]();
-      await client.query(
-        'INSERT INTO bets (strategy, numbers, date) VALUES ($1, $2, $3)',
-        [strategy, numbers, today]
-      );
-      console.log(`✓ Aposta gerada: ${strategy} - [${numbers.join(', ')}]`);
-    }
-
-    console.log(`🎲 ${STRATEGIES.length} apostas geradas para ${today}`);
-  } catch (error) {
-    console.error('❌ Erro ao gerar apostas:', error);
-  } finally {
-    client.release();
-  }
-}
-
-// Conferir apostas pendentes
-async function checkPendingBets() {
-  const client = await pool.connect();
-  try {
-    console.log('🔍 Verificando novos resultados...');
     
-    const result = await fetchLatestResult();
-    if (!result) {
-      console.log('⚠️ Nenhum resultado disponível');
-      return;
+    if (unique.length > 15) {
+        // Se tem mais de 15, pega os primeiros 15
+        return unique.slice(0, 15).sort((a, b) => a - b);
     }
-
-    const { contest, numbers, date } = result;
-
-    // Verificar se já conferimos este concurso
-    const existing = await client.query(
-      'SELECT id FROM results WHERE contest_number = $1',
-      [contest]
-    );
-
-    if (existing.rows.length > 0) {
-      console.log(`✓ Concurso ${contest} já conferido`);
-      return;
-    }
-
-    // Buscar apostas pendentes
-    const pendingBets = await client.query(
-      'SELECT * FROM bets WHERE date <= $1 AND result_numbers IS NULL',
-      [date]
-    );
-
-    if (pendingBets.rows.length === 0) {
-      console.log('✓ Nenhuma aposta pendente');
-      return;
-    }
-
-    let totalPrize = 0;
-
-    // Conferir cada aposta
-    for (const bet of pendingBets.rows) {
-      const matches = bet.numbers.filter(n => numbers.includes(n)).length;
-      const prize = PRIZE_TABLE[matches] || 0;
-      totalPrize += prize;
-
-      await client.query(
-        'UPDATE bets SET result_numbers = $1, matches = $2, prize = $3, contest_number = $4 WHERE id = $5',
-        [numbers, matches, prize, contest, bet.id]
-      );
-
-      console.log(`  ✓ ${bet.strategy}: ${matches} acertos - R$ ${prize.toFixed(2)}`);
-    }
-
-    // Registrar resultado
-    await client.query(
-      'INSERT INTO results (contest_number, numbers, date, total_prize, bets_checked) VALUES ($1, $2, $3, $4, $5)',
-      [contest, numbers, date, totalPrize, pendingBets.rows.length]
-    );
-
-    console.log(`🎉 Concurso ${contest} conferido! ${pendingBets.rows.length} apostas - R$ ${totalPrize.toFixed(2)}`);
-  } catch (error) {
-    console.error('❌ Erro ao conferir apostas:', error);
-  } finally {
-    client.release();
-  }
-}
-
-// API Endpoints
-app.get('/api/bets', async (req, res) => {
-  try {
-    const result = await pool.query(
-      'SELECT * FROM bets ORDER BY date DESC, created_at DESC LIMIT 1000'
-    );
-    res.json(result.rows);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/results', async (req, res) => {
-  try {
-    const result = await pool.query(
-      'SELECT * FROM results ORDER BY date DESC LIMIT 100'
-    );
-    res.json(result.rows);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/stats', async (req, res) => {
-  try {
-    const stats = {};
     
-    for (const strategy of STRATEGIES) {
-      const result = await pool.query(`
-        SELECT 
-          COUNT(*) as total_bets,
-          COALESCE(SUM(prize), 0) as total_prize,
-          COALESCE(AVG(matches), 0) as avg_matches,
-          COUNT(*) FILTER (WHERE matches = 11) as matches_11,
-          COUNT(*) FILTER (WHERE matches = 12) as matches_12,
-          COUNT(*) FILTER (WHERE matches = 13) as matches_13,
-          COUNT(*) FILTER (WHERE matches = 14) as matches_14,
-          COUNT(*) FILTER (WHERE matches = 15) as matches_15
-        FROM bets 
-        WHERE strategy = $1 AND result_numbers IS NOT NULL
-      `, [strategy]);
-
-      const data = result.rows[0];
-      const totalCost = parseInt(data.total_bets) * BET_COST;
-      const totalPrize = parseFloat(data.total_prize);
-
-      stats[strategy] = {
-        totalBets: parseInt(data.total_bets),
-        totalPrize: totalPrize,
-        totalCost: totalCost,
-        netProfit: totalPrize - totalCost,
-        avgMatches: parseFloat(data.avg_matches).toFixed(2),
-        roi: totalCost > 0 ? ((totalPrize - totalCost) / totalCost * 100).toFixed(2) : 0,
-        matchDistribution: {
-          11: parseInt(data.matches_11),
-          12: parseInt(data.matches_12),
-          13: parseInt(data.matches_13),
-          14: parseInt(data.matches_14),
-          15: parseInt(data.matches_15)
+    // Se tem menos de 15, completa com números aleatórios
+    const available = [];
+    for (let i = 1; i <= 25; i++) {
+        if (!unique.includes(i)) {
+            available.push(i);
         }
-      };
     }
-
-    res.json(stats);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/generate-bets', async (req, res) => {
-  try {
-    await generateDailyBets();
-    res.json({ success: true, message: 'Apostas geradas com sucesso' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/check-results', async (req, res) => {
-  try {
-    await checkPendingBets();
-    res.json({ success: true, message: 'Resultados verificados' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/status', async (req, res) => {
-  try {
-    const pendingBets = await pool.query(
-      'SELECT COUNT(*) FROM bets WHERE result_numbers IS NULL'
-    );
-    const totalBets = await pool.query('SELECT COUNT(*) FROM bets');
-    const totalResults = await pool.query('SELECT COUNT(*) FROM results');
     
-    res.json({
-      status: 'running',
-      pendingBets: parseInt(pendingBets.rows[0].count),
-      totalBets: parseInt(totalBets.rows[0].count),
-      totalResults: parseInt(totalResults.rows[0].count),
-      betCost: BET_COST,
-      lastCheck: new Date().toISOString()
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Novo endpoint: Calculadora de investimento
-app.post('/api/calculate-investment', async (req, res) => {
-  try {
-    const { amount, strategies } = req.body;
-    
-    if (!amount || amount <= 0) {
-      return res.status(400).json({ error: 'Valor inválido' });
+    // Embaralha os disponíveis
+    for (let i = available.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [available[i], available[j]] = [available[j], available[i]];
     }
-
-    // Calcular quantas apostas por estratégia
-    const totalStrategies = strategies ? Object.keys(strategies).length : STRATEGIES.length;
-    const maxBetsTotal = Math.floor(amount / BET_COST);
-    const betsPerStrategy = Math.floor(maxBetsTotal / totalStrategies);
-    const actualTotal = betsPerStrategy * totalStrategies;
-    const actualCost = actualTotal * BET_COST;
-    const change = amount - actualCost;
-
-    const distribution = {};
-    const selectedStrategies = strategies || STRATEGIES.reduce((acc, s) => ({ ...acc, [s]: true }), {});
     
-    Object.keys(selectedStrategies).forEach(strategy => {
-      if (selectedStrategies[strategy]) {
-        distribution[strategy] = betsPerStrategy;
-      }
-    });
-
-    res.json({
-      requestedAmount: parseFloat(amount),
-      betCost: BET_COST,
-      maxPossibleBets: maxBetsTotal,
-      strategiesCount: totalStrategies,
-      betsPerStrategy: betsPerStrategy,
-      totalBets: actualTotal,
-      actualCost: parseFloat(actualCost.toFixed(2)),
-      change: parseFloat(change.toFixed(2)),
-      distribution
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Novo endpoint: Informações de preço
-app.get('/api/pricing', (req, res) => {
-  res.json({
-    betCost: BET_COST,
-    prizeTable: PRIZE_TABLE,
-    currency: 'BRL'
-  });
-});
-
-// Agendar tarefas automáticas
-function scheduleTasks() {
-  // Gerar apostas todo dia às 00:00 (meia-noite)
-  cron.schedule('0 0 * * *', () => {
-    console.log('⏰ Executando geração diária de apostas...');
-    generateDailyBets();
-  }, {
-    timezone: 'America/Sao_Paulo'
-  });
-
-  // Verificar resultados a cada 1 hora
-  cron.schedule('0 * * * *', () => {
-    console.log('⏰ Executando verificação de resultados...');
-    checkPendingBets();
-  }, {
-    timezone: 'America/Sao_Paulo'
-  });
-
-  console.log('⏰ Cron jobs agendados:');
-  console.log('  - Geração de apostas: Diariamente às 00:00');
-  console.log('  - Verificação de resultados: A cada 1 hora');
+    // Adiciona até ter 15
+    while (unique.length < 15 && available.length > 0) {
+        unique.push(available.shift());
+    }
+    
+    return unique.sort((a, b) => a - b);
 }
 
-// Inicializar servidor
-async function startServer() {
-  try {
-    await initDatabase();
+// 1. Frequência Ponderada
+async function generateWeightedBet() {
+    try {
+        const result = await pool.query(`
+            SELECT numbers FROM results ORDER BY date DESC LIMIT 100
+        `);
+
+        const frequency = {};
+        for (let i = 1; i <= 25; i++) frequency[i] = 0;
+
+        result.rows.forEach(row => {
+            row.numbers.forEach(num => frequency[num]++);
+        });
+
+        const weighted = Object.entries(frequency)
+            .map(([num, freq]) => ({ num: parseInt(num), weight: freq + Math.random() * 5 }))
+            .sort((a, b) => b.weight - a.weight)
+            .slice(0, 15)
+            .map(item => item.num);
+
+        return ensureExactly15Numbers(weighted);
+    } catch (error) {
+        console.error('Error in generateWeightedBet:', error);
+        return generateRandomBet();
+    }
+}
+
+// 2. Mix Equilibrado - CORRIGIDO
+async function generateBalancedBet() {
+    try {
+        const result = await pool.query(`
+            SELECT numbers FROM results ORDER BY date DESC LIMIT 50
+        `);
+
+        const frequency = {};
+        for (let i = 1; i <= 25; i++) frequency[i] = 0;
+
+        result.rows.forEach(row => {
+            row.numbers.forEach(num => frequency[num]++);
+        });
+
+        const sorted = Object.entries(frequency)
+            .map(([num, freq]) => ({ num: parseInt(num), freq }))
+            .sort((a, b) => b.freq - a.freq);
+
+        const numbers = [];
+        
+        // 5 mais frequentes
+        for (let i = 0; i < 5 && i < sorted.length; i++) {
+            numbers.push(sorted[i].num);
+        }
+        
+        // 5 menos frequentes
+        for (let i = sorted.length - 1; i >= sorted.length - 5 && i >= 0; i--) {
+            if (!numbers.includes(sorted[i].num)) {
+                numbers.push(sorted[i].num);
+            }
+        }
+        
+        // Completa com números do meio (frequência média)
+        const middle = sorted.slice(5, sorted.length - 5);
+        for (const item of middle) {
+            if (numbers.length >= 15) break;
+            if (!numbers.includes(item.num)) {
+                numbers.push(item.num);
+            }
+        }
+        
+        // Garantir exatamente 15 números
+        return ensureExactly15Numbers(numbers);
+    } catch (error) {
+        console.error('Error in generateBalancedBet:', error);
+        return generateRandomBet();
+    }
+}
+
+// 3. Evitar Extremos
+async function generateModerateBet() {
+    const numbers = [];
+    const range = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
     
-    // Gerar apostas e verificar resultados na inicialização
-    await generateDailyBets();
-    await checkPendingBets();
+    while (numbers.length < 15) {
+        const num = range[Math.floor(Math.random() * range.length)];
+        if (!numbers.includes(num)) {
+            numbers.push(num);
+        }
+    }
     
-    // Agendar tarefas
-    scheduleTasks();
+    return ensureExactly15Numbers(numbers);
+}
+
+// 4. Distribuição Uniforme - CORRIGIDO
+function generateDistributedBet() {
+    const numbers = [];
     
-    app.listen(PORT, () => {
-      console.log(`🚀 Servidor rodando na porta ${PORT}`);
-      console.log(`🌐 API disponível em: http://localhost:${PORT}`);
-      console.log(`✅ Sistema automático ativo 24/7`);
+    // Divide 1-25 em 5 grupos de 5 números cada
+    const groups = [
+        [1, 2, 3, 4, 5],
+        [6, 7, 8, 9, 10],
+        [11, 12, 13, 14, 15],
+        [16, 17, 18, 19, 20],
+        [21, 22, 23, 24, 25]
+    ];
+    
+    // Pega 3 números de cada grupo
+    groups.forEach(group => {
+        const shuffled = [...group].sort(() => Math.random() - 0.5);
+        for (let i = 0; i < 3 && i < shuffled.length; i++) {
+            if (!numbers.includes(shuffled[i])) {
+                numbers.push(shuffled[i]);
+            }
+        }
     });
-  } catch (error) {
-    console.error('❌ Erro ao iniciar servidor:', error);
-    process.exit(1);
-  }
+    
+    // Garantir exatamente 15 números
+    return ensureExactly15Numbers(numbers);
+}
+
+// 5. Inteligente (combina várias técnicas)
+async function generateIntelligentBet() {
+    try {
+        const result = await pool.query(`
+            SELECT numbers FROM results ORDER BY date DESC LIMIT 30
+        `);
+
+        const frequency = {};
+        const pairs = {};
+        
+        for (let i = 1; i <= 25; i++) frequency[i] = 0;
+
+        result.rows.forEach(row => {
+            row.numbers.forEach(num => frequency[num]++);
+            
+            for (let i = 0; i < row.numbers.length; i++) {
+                for (let j = i + 1; j < row.numbers.length; j++) {
+                    const key = `${row.numbers[i]}-${row.numbers[j]}`;
+                    pairs[key] = (pairs[key] || 0) + 1;
+                }
+            }
+        });
+
+        const topPairs = Object.entries(pairs)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+
+        const numbers = [];
+        topPairs.forEach(([pair]) => {
+            const [a, b] = pair.split('-').map(Number);
+            if (!numbers.includes(a)) numbers.push(a);
+            if (!numbers.includes(b)) numbers.push(b);
+        });
+
+        const sorted = Object.entries(frequency)
+            .sort((a, b) => b[1] - a[1])
+            .map(([num]) => parseInt(num));
+
+        for (const num of sorted) {
+            if (numbers.length >= 15) break;
+            if (!numbers.includes(num)) numbers.push(num);
+        }
+
+        return ensureExactly15Numbers(numbers);
+    } catch (error) {
+        console.error('Error in generateIntelligentBet:', error);
+        return generateRandomBet();
+    }
+}
+
+// 6. Aleatório Puro
+function generateRandomBet() {
+    const numbers = [];
+    while (numbers.length < 15) {
+        const num = Math.floor(Math.random() * 25) + 1;
+        if (!numbers.includes(num)) {
+            numbers.push(num);
+        }
+    }
+    return ensureExactly15Numbers(numbers);
+}
+
+// ==================== MAIN FUNCTIONS ====================
+
+async function generateDailyBets() {
+    console.log('🎲 Generating daily bets...');
+    
+    const strategies = [
+        { name: 'weighted', fn: generateWeightedBet },
+        { name: 'balanced', fn: generateBalancedBet },
+        { name: 'moderate', fn: generateModerateBet },
+        { name: 'distributed', fn: generateDistributedBet },
+        { name: 'intelligent', fn: generateIntelligentBet },
+        { name: 'random', fn: generateRandomBet }
+    ];
+
+    const today = new Date().toISOString().split('T')[0];
+
+    for (const strategy of strategies) {
+        try {
+            const numbers = await strategy.fn();
+            
+            // Verificar se realmente tem 15 números
+            if (numbers.length !== 15) {
+                console.error(`❌ Strategy ${strategy.name} generated ${numbers.length} numbers instead of 15!`);
+                continue;
+            }
+            
+            await pool.query(
+                'INSERT INTO bets (strategy, numbers, date) VALUES ($1, $2, $3)',
+                [strategy.name, numbers, today]
+            );
+            
+            console.log(`✅ Bet generated: ${strategy.name} - [${numbers.join(', ')}]`);
+        } catch (error) {
+            console.error(`❌ Error generating bet for ${strategy.name}:`, error);
+        }
+    }
+    
+    console.log('✅ Daily bets generated successfully');
+}
+
+async function fetchLatestResult() {
+    try {
+        // Try primary API
+        let response = await fetch('https://servicebus2.caixa.gov.br/portaldeloterias/api/lotofacil');
+        
+        if (!response.ok) {
+            // Try alternative API
+            response = await fetch('https://loteriascaixa-api.herokuapp.com/api/lotofacil/latest');
+        }
+        
+        const data = await response.json();
+        
+        return {
+            contestNumber: data.numero || data.concurso,
+            numbers: data.dezenas || data.listaDezenas || data.numbers,
+            date: data.dataApuracao || data.data || new Date().toISOString().split('T')[0]
+        };
+    } catch (error) {
+        console.error('❌ Error fetching result:', error);
+        return null;
+    }
+}
+
+async function checkPendingBets() {
+    console.log('🔍 Checking pending bets...');
+    
+    try {
+        const latestResult = await fetchLatestResult();
+        
+        if (!latestResult) {
+            console.log('⚠️ No result available');
+            return;
+        }
+
+        // Check if result already exists
+        const existingResult = await pool.query(
+            'SELECT id FROM results WHERE contest_number = $1',
+            [latestResult.contestNumber]
+        );
+
+        if (existingResult.rows.length === 0) {
+            // Save new result
+            await pool.query(
+                'INSERT INTO results (contest_number, numbers, date) VALUES ($1, $2, $3)',
+                [latestResult.contestNumber, latestResult.numbers, latestResult.date]
+            );
+            console.log(`✅ New result saved: Contest ${latestResult.contestNumber}`);
+        }
+
+        // Check pending bets
+        const pendingBets = await pool.query(
+            'SELECT * FROM bets WHERE result_numbers IS NULL'
+        );
+
+        let totalPrize = 0;
+        let checkedCount = 0;
+
+        for (const bet of pendingBets.rows) {
+            const matches = bet.numbers.filter(num => 
+                latestResult.numbers.includes(num)
+            ).length;
+
+            const prize = PRICING.prizes[matches] || 0;
+            totalPrize += prize;
+
+            await pool.query(
+                `UPDATE bets 
+                 SET result_numbers = $1, matches = $2, prize = $3, contest_number = $4 
+                 WHERE id = $5`,
+                [latestResult.numbers, matches, prize, latestResult.contestNumber, bet.id]
+            );
+
+            checkedCount++;
+            console.log(`✅ Bet ${bet.id} checked: ${matches} matches - R$ ${prize.toFixed(2)}`);
+        }
+
+        // Update result total
+        if (checkedCount > 0) {
+            await pool.query(
+                'UPDATE results SET total_prize = $1, bets_checked = $2 WHERE contest_number = $3',
+                [totalPrize, checkedCount, latestResult.contestNumber]
+            );
+        }
+
+        console.log(`✅ ${checkedCount} bets checked. Total prize: R$ ${totalPrize.toFixed(2)}`);
+    } catch (error) {
+        console.error('❌ Error checking bets:', error);
+    }
+}
+
+// ==================== API ROUTES ====================
+
+// Get all bets
+app.get('/api/bets', async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT * FROM bets ORDER BY date DESC, id DESC LIMIT 100'
+        );
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching bets:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get all results
+app.get('/api/results', async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT * FROM results ORDER BY date DESC LIMIT 50'
+        );
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching results:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get statistics
+app.get('/api/stats', async (req, res) => {
+    try {
+        const strategies = ['weighted', 'balanced', 'moderate', 'distributed', 'intelligent', 'random'];
+        const stats = {};
+
+        for (const strategy of strategies) {
+            const result = await pool.query(`
+                SELECT 
+                    COUNT(*) as total_bets,
+                    COALESCE(SUM(prize), 0) as total_prize,
+                    COALESCE(AVG(matches), 0) as avg_matches
+                FROM bets 
+                WHERE strategy = $1 AND result_numbers IS NOT NULL
+            `, [strategy]);
+
+            const data = result.rows[0];
+            const totalCost = parseInt(data.total_bets) * PRICING.betCost;
+            const totalPrize = parseFloat(data.total_prize);
+            const netProfit = totalPrize - totalCost;
+            const roi = totalCost > 0 ? ((netProfit / totalCost) * 100).toFixed(2) : '0.00';
+
+            stats[strategy] = {
+                totalBets: parseInt(data.total_bets),
+                totalPrize: totalPrize,
+                totalCost: totalCost,
+                netProfit: netProfit,
+                roi: roi,
+                avgMatches: parseFloat(data.avg_matches).toFixed(2)
+            };
+        }
+
+        res.json(stats);
+    } catch (error) {
+        console.error('Error fetching stats:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get system status
+app.get('/api/status', async (req, res) => {
+    try {
+        const pendingBets = await pool.query(
+            'SELECT COUNT(*) FROM bets WHERE result_numbers IS NULL'
+        );
+
+        const lastBet = await pool.query(
+            'SELECT date FROM bets ORDER BY date DESC LIMIT 1'
+        );
+
+        const lastResult = await pool.query(
+            'SELECT date, contest_number FROM results ORDER BY date DESC LIMIT 1'
+        );
+
+        res.json({
+            status: 'active',
+            pendingBets: parseInt(pendingBets.rows[0].count),
+            lastBetDate: lastBet.rows[0]?.date || null,
+            lastResultDate: lastResult.rows[0]?.date || null,
+            lastContest: lastResult.rows[0]?.contest_number || null
+        });
+    } catch (error) {
+        console.error('Error fetching status:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Calculate investment
+app.post('/api/calculate-investment', async (req, res) => {
+    try {
+        const { amount, strategies } = req.body;
+        
+        const selectedStrategies = Object.keys(strategies).filter(key => strategies[key]);
+        const strategiesCount = selectedStrategies.length;
+        
+        if (strategiesCount === 0) {
+            return res.json({
+                error: 'Selecione pelo menos uma estratégia',
+                totalBets: 0,
+                actualCost: 0,
+                change: amount
+            });
+        }
+
+        const maxBets = Math.floor(amount / PRICING.betCost);
+        const betsPerStrategy = Math.floor(maxBets / strategiesCount);
+        const totalBets = betsPerStrategy * strategiesCount;
+        const actualCost = totalBets * PRICING.betCost;
+        const change = amount - actualCost;
+
+        const distribution = {};
+        selectedStrategies.forEach(strategy => {
+            distribution[strategy] = betsPerStrategy;
+        });
+
+        res.json({
+            requestedAmount: amount,
+            betCost: PRICING.betCost,
+            maxPossibleBets: maxBets,
+            strategiesCount: strategiesCount,
+            betsPerStrategy: betsPerStrategy,
+            totalBets: totalBets,
+            actualCost: actualCost,
+            change: change,
+            distribution: distribution
+        });
+    } catch (error) {
+        console.error('Error calculating investment:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get pricing
+app.get('/api/pricing', (req, res) => {
+    res.json(PRICING);
+});
+
+// Generate bets manually (for testing)
+app.post('/api/generate-bets', async (req, res) => {
+    try {
+        await generateDailyBets();
+        res.json({ success: true, message: 'Bets generated successfully' });
+    } catch (error) {
+        console.error('Error generating bets:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Check bets manually (for testing)
+app.post('/api/check-bets', async (req, res) => {
+    try {
+        await checkPendingBets();
+        res.json({ success: true, message: 'Bets checked successfully' });
+    } catch (error) {
+        console.error('Error checking bets:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ==================== CRON JOBS ====================
+
+// Generate bets daily at midnight (Brazil time - GMT-3)
+cron.schedule('0 0 * * *', () => {
+    console.log('⏰ Running daily bet generation...');
+    generateDailyBets();
+}, {
+    timezone: "America/Sao_Paulo"
+});
+
+// Check results every hour
+cron.schedule('0 * * * *', () => {
+    console.log('⏰ Running hourly bet check...');
+    checkPendingBets();
+}, {
+    timezone: "America/Sao_Paulo"
+});
+
+// ==================== SERVER START ====================
+
+async function startServer() {
+    try {
+        await initializeDatabase();
+        
+        app.listen(port, () => {
+            console.log('🚀 Servidor rodando na porta', port);
+            console.log('✅ Database initialized successfully');
+            console.log('⏰ Cron jobs agendados:');
+            console.log('   - Gerar apostas: TODO DIA às 00:00');
+            console.log('   - Conferir resultados: A CADA 1 HORA');
+        });
+    } catch (error) {
+        console.error('❌ Error starting server:', error);
+        process.exit(1);
+    }
 }
 
 startServer();
