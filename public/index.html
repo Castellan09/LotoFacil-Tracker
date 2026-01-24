@@ -108,6 +108,12 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
+
+        .best-strategy {
+            animation: pulse 2s infinite;
+            border: 2px solid #fbbf24 !important;
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.4) !important;
+        }
     </style>
 </head>
 <body>
@@ -150,6 +156,8 @@
             const [betCost, setBetCost] = useState(3.50);
             const [nextDraw, setNextDraw] = useState(null);
             const [countdown, setCountdown] = useState('');
+            const [generatedBets, setGeneratedBets] = useState([]);
+            const [generating, setGenerating] = useState(false);
 
             const calculateNextDraw = () => {
                 const now = new Date();
@@ -158,12 +166,10 @@
                 let next = new Date(brTime);
                 next.setHours(20, 0, 0, 0);
                 
-                // Se já passou das 20h hoje, vai pro próximo dia
                 if (brTime.getHours() >= 20) {
                     next.setDate(next.getDate() + 1);
                 }
                 
-                // Pular domingo (dia 0)
                 while (next.getDay() === 0) {
                     next.setDate(next.getDate() + 1);
                 }
@@ -246,6 +252,21 @@
                 }
             };
 
+            const generateBets = async () => {
+                setGenerating(true);
+                try {
+                    await fetch(`${API_URL}/api/generate-bets`, { method: 'POST' });
+                    await fetchData(); // Atualiza dados
+                    setGeneratedBets(bets.slice(0, 6)); // Pega as 6 mais recentes
+                    alert('✅ Apostas geradas com sucesso!');
+                } catch (error) {
+                    console.error('Erro ao gerar apostas:', error);
+                    alert('❌ Erro ao gerar apostas. Tente novamente.');
+                } finally {
+                    setGenerating(false);
+                }
+            };
+
             useEffect(() => {
                 fetchData();
                 updateCountdown();
@@ -263,6 +284,11 @@
                 totalCost: Object.values(stats).reduce((sum, s) => sum + (s.totalCost || 0), 0),
                 bestStrategy: Object.entries(stats).sort((a, b) => b[1].netProfit - a[1].netProfit)[0]?.[0],
                 betCost: betCost
+            };
+
+            const getBestStrategy = () => {
+                if (Object.keys(stats).length === 0) return null;
+                return Object.entries(stats).sort((a, b) => b[1].netProfit - a[1].netProfit)[0]?.[0];
             };
 
             if (loading) {
@@ -337,20 +363,14 @@
                             <p style={{ color: '#9ca3af', fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                                 🤖 Sistema Automático Rodando 24/7 no Servidor
                             </p>
-                            <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '0.5rem', display: 'inline-block' }}>
-                                <p style={{ fontSize: '0.875rem', color: '#10b981' }}>
-                                    ✅ Gerando apostas automaticamente todo dia às 00:00<br />
-                                    ✅ Verificando resultados a cada 1 hora<br />
-                                    ✅ Tudo guardado permanentemente no banco de dados
-                                </p>
-                            </div>
                         </div>
 
                         {/* Navigation */}
                         <div style={{ marginBottom: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center' }}>
                             {[
                                 { id: 'dashboard', label: '📊 Dashboard' },
-                                { id: 'bets', label: '🎲 Apostas' },
+                                { id: 'generate', label: '🎲 Gerar Apostas' },
+                                { id: 'bets', label: '📋 Apostas' },
                                 { id: 'simulator', label: '💰 Simulador' },
                                 { id: 'history', label: '📅 Histórico' }
                             ].map(({ id, label }) => (
@@ -461,6 +481,142 @@
                                         <p style={{ marginTop: '1rem', color: '#9ca3af' }}>
                                             💡 Esta é a estratégia mais lucrativa até agora!
                                         </p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Generate Bets */}
+                        {activeTab === 'generate' && (
+                            <div>
+                                <div className="card" style={{ borderRadius: '0.75rem', padding: '1.5rem', marginBottom: '1.5rem' }}>
+                                    <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1rem', color: '#10b981' }}>
+                                        🎲 GERAR NOVAS APOSTAS
+                                    </h2>
+                                    
+                                    <div style={{ background: 'rgba(16, 185, 129, 0.1)', borderRadius: '0.5rem', padding: '1rem', marginBottom: '1.5rem', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                                        <div style={{ fontSize: '0.875rem', color: '#10b981' }}>
+                                            <strong>💡 Como funciona:</strong><br />
+                                            Selecione quais estratégias você quer usar e clique em "GERAR APOSTAS".<br />
+                                            O sistema vai criar 1 aposta para cada estratégia selecionada.<br />
+                                            <strong>Ao lado de cada estratégia</strong> você vê em tempo real qual está performando melhor!
+                                        </div>
+                                    </div>
+
+                                    <div style={{ marginBottom: '1.5rem' }}>
+                                        <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', marginBottom: '1rem', color: '#10b981' }}>
+                                            🎯 Selecione as Estratégias
+                                        </h3>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                            {Object.entries(STRATEGIES).map(([key, strategy]) => {
+                                                const stratStats = stats[key] || { netProfit: 0, roi: '0.00', avgMatches: '0.00', totalBets: 0 };
+                                                const isBest = getBestStrategy() === key;
+                                                
+                                                return (
+                                                    <label key={key} className={isBest ? 'best-strategy' : ''} style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        padding: '1rem',
+                                                        background: selectedStrategies[key] ? 'rgba(16, 185, 129, 0.2)' : 'rgba(30, 41, 59, 0.5)',
+                                                        borderRadius: '0.5rem',
+                                                        cursor: 'pointer',
+                                                        border: `2px solid ${selectedStrategies[key] ? '#10b981' : 'transparent'}`,
+                                                        transition: 'all 0.3s'
+                                                    }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedStrategies[key]}
+                                                                onChange={(e) => setSelectedStrategies({
+                                                                    ...selectedStrategies,
+                                                                    [key]: e.target.checked
+                                                                })}
+                                                                style={{ width: '20px', height: '20px', marginRight: '0.75rem', cursor: 'pointer' }}
+                                                            />
+                                                            <span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>{strategy.icon}</span>
+                                                            <span style={{ fontSize: '0.875rem', fontWeight: 'bold' }}>{strategy.name}</span>
+                                                            {isBest && (
+                                                                <span style={{ marginLeft: '0.5rem', padding: '0.25rem 0.5rem', background: '#fbbf24', color: 'black', borderRadius: '0.25rem', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                                                                    🏆 MELHOR
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        
+                                                        {stratStats.totalBets > 0 && (
+                                                            <div style={{ textAlign: 'right', fontSize: '0.75rem' }}>
+                                                                <div className={stratStats.netProfit >= 0 ? 'profit' : 'loss'} style={{ fontWeight: 'bold', fontSize: '1rem' }}>
+                                                                    R$ {stratStats.netProfit.toFixed(2)}
+                                                                </div>
+                                                                <div style={{ color: '#9ca3af' }}>
+                                                                    ROI: {stratStats.roi}% | Avg: {stratStats.avgMatches}
+                                                                </div>
+                                                                <div style={{ color: '#6b7280' }}>
+                                                                    {stratStats.totalBets} apostas
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {stratStats.totalBets === 0 && (
+                                                            <div style={{ textAlign: 'right', fontSize: '0.75rem', color: '#6b7280' }}>
+                                                                Sem dados ainda
+                                                            </div>
+                                                        )}
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={generateBets}
+                                        disabled={generating || Object.values(selectedStrategies).every(v => !v)}
+                                        style={{
+                                            width: '100%',
+                                            background: generating ? '#6b7280' : '#10b981',
+                                            color: 'black',
+                                            fontWeight: 'bold',
+                                            padding: '1.25rem',
+                                            borderRadius: '0.5rem',
+                                            fontSize: '1.25rem',
+                                            marginBottom: '1.5rem'
+                                        }}
+                                    >
+                                        {generating ? '⏳ GERANDO...' : '🎲 GERAR APOSTAS AGORA'}
+                                    </button>
+
+                                    <div style={{ background: 'rgba(59, 130, 246, 0.1)', borderRadius: '0.5rem', padding: '1rem', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                                        <p style={{ fontSize: '0.875rem', color: '#9ca3af', lineHeight: '1.6' }}>
+                                            <strong style={{ color: '#3b82f6' }}>⚠️ IMPORTANTE:</strong><br />
+                                            As apostas geradas aqui são apenas para você acompanhar o desempenho das estratégias.<br />
+                                            Para jogar de verdade na Lotofácil, você precisa preencher o volante com os números gerados na lotérica ou pelo app da Caixa.<br />
+                                            Custo: R$ {betCost.toFixed(2)} por aposta.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {generatedBets.length > 0 && (
+                                    <div className="card" style={{ borderRadius: '0.75rem', padding: '1.5rem' }}>
+                                        <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#10b981' }}>
+                                            ✅ Últimas Apostas Geradas
+                                        </h3>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                            {generatedBets.map(bet => (
+                                                <div key={bet.id} style={{ background: 'rgba(30, 41, 59, 0.5)', borderRadius: '0.5rem', padding: '1rem' }}>
+                                                    <div style={{ marginBottom: '0.75rem' }}>
+                                                        <span className="strategy-badge" style={{ backgroundColor: STRATEGIES[bet.strategy].color }}>
+                                                            {STRATEGIES[bet.strategy].icon} {STRATEGIES[bet.strategy].name}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                        {bet.numbers.map(num => (
+                                                            <div key={num} className="number-ball">
+                                                                {num.toString().padStart(2, '0')}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -677,20 +833,6 @@
                                             </div>
                                         </div>
                                     )}
-                                </div>
-
-                                <div className="card" style={{ borderRadius: '0.75rem', padding: '1.5rem', background: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.3)' }}>
-                                    <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#3b82f6' }}>
-                                        💡 DICA PRO
-                                    </h3>
-                                    <p style={{ fontSize: '0.875rem', color: '#9ca3af', lineHeight: '1.6' }}>
-                                        <strong>Exemplo prático:</strong><br />
-                                        Você quer investir R$ 45,00. Cada aposta custa R$ {betCost.toFixed(2)}.<br />
-                                        Com 6 estratégias: 45 ÷ {betCost.toFixed(2)} = {Math.floor(45 / betCost)} apostas possíveis.<br />
-                                        {Math.floor(45 / betCost)} ÷ 6 estratégias = {Math.floor(Math.floor(45 / betCost) / 6)} apostas por estratégia.<br />
-                                        <strong style={{ color: '#10b981' }}>Total real: {Math.floor(Math.floor(45 / betCost) / 6) * 6} apostas = R$ {(Math.floor(Math.floor(45 / betCost) / 6) * 6 * betCost).toFixed(2)}</strong><br />
-                                        Troco: R$ {(45 - (Math.floor(Math.floor(45 / betCost) / 6) * 6 * betCost)).toFixed(2)}
-                                    </p>
                                 </div>
                             </div>
                         )}
