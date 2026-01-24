@@ -89,6 +89,11 @@
             to { transform: rotate(360deg); }
         }
         
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        
         .animate-spin {
             animation: spin 1s linear infinite;
         }
@@ -114,7 +119,7 @@
         // Configuração da API
         const API_URL = window.location.hostname === 'localhost' 
             ? 'http://localhost:3000' 
-            : ''; // Em produção, mesma origem
+            : '';
 
         const STRATEGIES = {
             weighted: { name: 'Frequência Ponderada', color: '#10b981', icon: '📊' },
@@ -143,6 +148,56 @@
             });
             const [investmentCalc, setInvestmentCalc] = useState(null);
             const [betCost, setBetCost] = useState(3.50);
+            const [nextDraw, setNextDraw] = useState(null);
+            const [countdown, setCountdown] = useState('');
+
+            const calculateNextDraw = () => {
+                const now = new Date();
+                const brTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+                
+                let next = new Date(brTime);
+                next.setHours(20, 0, 0, 0);
+                
+                // Se já passou das 20h hoje, vai pro próximo dia
+                if (brTime.getHours() >= 20) {
+                    next.setDate(next.getDate() + 1);
+                }
+                
+                // Pular domingo (dia 0)
+                while (next.getDay() === 0) {
+                    next.setDate(next.getDate() + 1);
+                }
+                
+                return next;
+            };
+
+            const updateCountdown = () => {
+                const now = new Date();
+                const brTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+                const next = calculateNextDraw();
+                
+                const diff = next - brTime;
+                
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                
+                const weekdays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+                
+                setNextDraw({
+                    date: next,
+                    dayName: weekdays[next.getDay()],
+                    formatted: next.toLocaleDateString('pt-BR')
+                });
+                
+                if (days > 0) {
+                    setCountdown(`${days} dia${days > 1 ? 's' : ''}, ${hours}h ${minutes}min`);
+                } else if (hours > 0) {
+                    setCountdown(`${hours}h ${minutes}min`);
+                } else {
+                    setCountdown(`${minutes} minuto${minutes !== 1 ? 's' : ''}`);
+                }
+            };
 
             const fetchData = async () => {
                 try {
@@ -193,8 +248,13 @@
 
             useEffect(() => {
                 fetchData();
-                const interval = setInterval(fetchData, 30000); // Atualiza a cada 30s
-                return () => clearInterval(interval);
+                updateCountdown();
+                const dataInterval = setInterval(fetchData, 30000);
+                const countdownInterval = setInterval(updateCountdown, 60000);
+                return () => {
+                    clearInterval(dataInterval);
+                    clearInterval(countdownInterval);
+                };
             }, []);
 
             const totalStats = {
@@ -249,6 +309,28 @@
 
                     <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
                         <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+                            {/* Banner Próximo Sorteio */}
+                            {nextDraw && (
+                                <div style={{
+                                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.2) 100%)',
+                                    border: '2px solid #10b981',
+                                    borderRadius: '1rem',
+                                    padding: '1.5rem',
+                                    marginBottom: '1.5rem',
+                                    animation: 'pulse 2s infinite'
+                                }}>
+                                    <div style={{ fontSize: '1rem', color: '#10b981', fontWeight: 'bold', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                                        🎯 Próximo Sorteio
+                                    </div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: '900', color: 'white', marginBottom: '0.5rem' }}>
+                                        {nextDraw.dayName}, {nextDraw.formatted} às 20:00
+                                    </div>
+                                    <div style={{ fontSize: '1.125rem', color: '#9ca3af' }}>
+                                        ⏰ Faltam: <span style={{ color: '#10b981', fontWeight: 'bold' }}>{countdown}</span>
+                                    </div>
+                                </div>
+                            )}
+
                             <h1 className="glow" style={{ fontSize: '3rem', fontWeight: 900, marginBottom: '0.5rem' }}>
                                 <span style={{ color: '#10b981' }}>LOTO</span>FÁCIL TRACKER
                             </h1>
