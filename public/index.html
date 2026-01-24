@@ -111,8 +111,18 @@
 
         .best-strategy {
             animation: pulse 2s infinite;
-            border: 2px solid #fbbf24 !important;
-            box-shadow: 0 0 20px rgba(251, 191, 36, 0.4) !important;
+            border: 3px solid #fbbf24 !important;
+            box-shadow: 0 0 30px rgba(251, 191, 36, 0.6) !important;
+            position: relative;
+        }
+        
+        .best-strategy::before {
+            content: '🏆';
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            font-size: 2rem;
+            animation: pulse 2s infinite;
         }
     </style>
 </head>
@@ -122,10 +132,7 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // Configuração da API
-        const API_URL = window.location.hostname === 'localhost' 
-            ? 'http://localhost:3000' 
-            : '';
+        const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
 
         const STRATEGIES = {
             weighted: { name: 'Frequência Ponderada', color: '#10b981', icon: '📊' },
@@ -152,28 +159,22 @@
                 intelligent: true,
                 random: true
             });
-            const [investmentCalc, setInvestmentCalc] = useState(null);
             const [betCost, setBetCost] = useState(3.50);
             const [nextDraw, setNextDraw] = useState(null);
             const [countdown, setCountdown] = useState('');
-            const [generatedBets, setGeneratedBets] = useState([]);
             const [generating, setGenerating] = useState(false);
 
             const calculateNextDraw = () => {
                 const now = new Date();
                 const brTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
-                
                 let next = new Date(brTime);
                 next.setHours(20, 0, 0, 0);
-                
                 if (brTime.getHours() >= 20) {
                     next.setDate(next.getDate() + 1);
                 }
-                
                 while (next.getDay() === 0) {
                     next.setDate(next.getDate() + 1);
                 }
-                
                 return next;
             };
 
@@ -181,13 +182,10 @@
                 const now = new Date();
                 const brTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
                 const next = calculateNextDraw();
-                
                 const diff = next - brTime;
-                
                 const days = Math.floor(diff / (1000 * 60 * 60 * 24));
                 const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                 const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                
                 const weekdays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
                 
                 setNextDraw({
@@ -235,29 +233,11 @@
                 }
             };
 
-            const calculateInvestment = async () => {
-                try {
-                    const response = await fetch(`${API_URL}/api/calculate-investment`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            amount: parseFloat(investmentAmount),
-                            strategies: selectedStrategies
-                        })
-                    });
-                    const data = await response.json();
-                    setInvestmentCalc(data);
-                } catch (error) {
-                    console.error('Erro ao calcular investimento:', error);
-                }
-            };
-
             const generateBets = async () => {
                 setGenerating(true);
                 try {
                     await fetch(`${API_URL}/api/generate-bets`, { method: 'POST' });
-                    await fetchData(); // Atualiza dados
-                    setGeneratedBets(bets.slice(0, 6)); // Pega as 6 mais recentes
+                    await fetchData();
                     alert('✅ Apostas geradas com sucesso!');
                 } catch (error) {
                     console.error('Erro ao gerar apostas:', error);
@@ -290,6 +270,14 @@
                 if (Object.keys(stats).length === 0) return null;
                 return Object.entries(stats).sort((a, b) => b[1].netProfit - a[1].netProfit)[0]?.[0];
             };
+
+            // Cálculo do investimento
+            const selectedCount = Object.values(selectedStrategies).filter(Boolean).length;
+            const maxBets = Math.floor(parseFloat(investmentAmount || 0) / betCost);
+            const betsPerStrategy = selectedCount > 0 ? Math.floor(maxBets / selectedCount) : 0;
+            const totalBets = betsPerStrategy * selectedCount;
+            const actualCost = totalBets * betCost;
+            const change = parseFloat(investmentAmount || 0) - actualCost;
 
             if (loading) {
                 return (
@@ -371,7 +359,6 @@
                                 { id: 'dashboard', label: '📊 Dashboard' },
                                 { id: 'generate', label: '🎲 Gerar Apostas' },
                                 { id: 'bets', label: '📋 Apostas' },
-                                { id: 'simulator', label: '💰 Simulador' },
                                 { id: 'history', label: '📅 Histórico' }
                             ].map(({ id, label }) => (
                                 <button
@@ -486,23 +473,70 @@
                             </div>
                         )}
 
-                        {/* Generate Bets */}
+                        {/* Generate Bets - ABA UNIFICADA */}
                         {activeTab === 'generate' && (
                             <div>
                                 <div className="card" style={{ borderRadius: '0.75rem', padding: '1.5rem', marginBottom: '1.5rem' }}>
                                     <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1rem', color: '#10b981' }}>
-                                        🎲 GERAR NOVAS APOSTAS
+                                        🎲 GERAR APOSTAS INTELIGENTES
                                     </h2>
                                     
                                     <div style={{ background: 'rgba(16, 185, 129, 0.1)', borderRadius: '0.5rem', padding: '1rem', marginBottom: '1.5rem', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
                                         <div style={{ fontSize: '0.875rem', color: '#10b981' }}>
                                             <strong>💡 Como funciona:</strong><br />
-                                            Selecione quais estratégias você quer usar e clique em "GERAR APOSTAS".<br />
-                                            O sistema vai criar 1 aposta para cada estratégia selecionada.<br />
-                                            <strong>Ao lado de cada estratégia</strong> você vê em tempo real qual está performando melhor!
+                                            1. Digite quanto quer investir<br />
+                                            2. Veja quantas apostas pode fazer<br />
+                                            3. Selecione as estratégias (veja qual é a CAMPEÃ 🏆)<br />
+                                            4. Clique em GERAR e pronto!<br />
+                                            <strong>Custo:</strong> R$ {betCost.toFixed(2)} por aposta
                                         </div>
                                     </div>
 
+                                    {/* Campo de Investimento */}
+                                    <div style={{ marginBottom: '1.5rem' }}>
+                                        <label style={{ display: 'block', fontSize: '1rem', color: '#10b981', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                                            💵 Quanto você quer investir?
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={investmentAmount}
+                                            onChange={(e) => setInvestmentAmount(e.target.value)}
+                                            placeholder="Ex: 100"
+                                            style={{
+                                                width: '100%',
+                                                background: '#1e293b',
+                                                border: '2px solid #10b981',
+                                                borderRadius: '0.5rem',
+                                                padding: '1rem',
+                                                color: 'white',
+                                                fontSize: '1.5rem',
+                                                fontWeight: 'bold',
+                                                textAlign: 'center'
+                                            }}
+                                        />
+                                    </div>
+
+                                    {/* Resumo do Investimento */}
+                                    {investmentAmount && parseFloat(investmentAmount) > 0 && (
+                                        <div style={{ background: 'rgba(59, 130, 246, 0.1)', borderRadius: '0.75rem', padding: '1rem', marginBottom: '1.5rem', border: '2px solid #3b82f6' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', textAlign: 'center' }}>
+                                                <div>
+                                                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase' }}>Você pode fazer</div>
+                                                    <div style={{ fontSize: '2rem', fontWeight: 900, color: '#3b82f6' }}>{totalBets} apostas</div>
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase' }}>Vai gastar</div>
+                                                    <div style={{ fontSize: '2rem', fontWeight: 900, color: '#10b981' }}>R$ {actualCost.toFixed(2)}</div>
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase' }}>Troco</div>
+                                                    <div style={{ fontSize: '2rem', fontWeight: 900, color: change > 0 ? '#fbbf24' : '#6b7280' }}>R$ {change.toFixed(2)}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Seleção de Estratégias com Stats */}
                                     <div style={{ marginBottom: '1.5rem' }}>
                                         <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', marginBottom: '1rem', color: '#10b981' }}>
                                             🎯 Selecione as Estratégias
@@ -511,19 +545,25 @@
                                             {Object.entries(STRATEGIES).map(([key, strategy]) => {
                                                 const stratStats = stats[key] || { netProfit: 0, roi: '0.00', avgMatches: '0.00', totalBets: 0 };
                                                 const isBest = getBestStrategy() === key;
+                                                const betsForThis = selectedStrategies[key] ? betsPerStrategy : 0;
                                                 
                                                 return (
-                                                    <label key={key} className={isBest ? 'best-strategy' : ''} style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'space-between',
-                                                        padding: '1rem',
-                                                        background: selectedStrategies[key] ? 'rgba(16, 185, 129, 0.2)' : 'rgba(30, 41, 59, 0.5)',
-                                                        borderRadius: '0.5rem',
-                                                        cursor: 'pointer',
-                                                        border: `2px solid ${selectedStrategies[key] ? '#10b981' : 'transparent'}`,
-                                                        transition: 'all 0.3s'
-                                                    }}>
+                                                    <label 
+                                                        key={key} 
+                                                        className={isBest ? 'best-strategy' : ''} 
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            padding: '1rem',
+                                                            background: selectedStrategies[key] ? 'rgba(16, 185, 129, 0.2)' : 'rgba(30, 41, 59, 0.5)',
+                                                            borderRadius: '0.75rem',
+                                                            cursor: 'pointer',
+                                                            border: `2px solid ${selectedStrategies[key] ? '#10b981' : 'transparent'}`,
+                                                            transition: 'all 0.3s',
+                                                            position: 'relative'
+                                                        }}
+                                                    >
                                                         <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
                                                             <input
                                                                 type="checkbox"
@@ -532,93 +572,84 @@
                                                                     ...selectedStrategies,
                                                                     [key]: e.target.checked
                                                                 })}
-                                                                style={{ width: '20px', height: '20px', marginRight: '0.75rem', cursor: 'pointer' }}
+                                                                style={{ width: '24px', height: '24px', marginRight: '1rem', cursor: 'pointer' }}
                                                             />
-                                                            <span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>{strategy.icon}</span>
-                                                            <span style={{ fontSize: '0.875rem', fontWeight: 'bold' }}>{strategy.name}</span>
-                                                            {isBest && (
-                                                                <span style={{ marginLeft: '0.5rem', padding: '0.25rem 0.5rem', background: '#fbbf24', color: 'black', borderRadius: '0.25rem', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                                                                    🏆 MELHOR
-                                                                </span>
-                                                            )}
+                                                            <div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.25rem' }}>
+                                                                    <span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>{strategy.icon}</span>
+                                                                    <span style={{ fontSize: '1rem', fontWeight: 'bold' }}>{strategy.name}</span>
+                                                                    {isBest && (
+                                                                        <span style={{ marginLeft: '0.5rem', padding: '0.25rem 0.75rem', background: '#fbbf24', color: 'black', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                                                                            🏆 CAMPEÃ
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                {betsForThis > 0 && (
+                                                                    <div style={{ fontSize: '0.875rem', color: '#10b981', fontWeight: 'bold' }}>
+                                                                        → {betsForThis} aposta{betsForThis > 1 ? 's' : ''} desta (R$ {(betsForThis * betCost).toFixed(2)})
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                         
-                                                        {stratStats.totalBets > 0 && (
-                                                            <div style={{ textAlign: 'right', fontSize: '0.75rem' }}>
-                                                                <div className={stratStats.netProfit >= 0 ? 'profit' : 'loss'} style={{ fontWeight: 'bold', fontSize: '1rem' }}>
-                                                                    R$ {stratStats.netProfit.toFixed(2)}
-                                                                </div>
-                                                                <div style={{ color: '#9ca3af' }}>
-                                                                    ROI: {stratStats.roi}% | Avg: {stratStats.avgMatches}
-                                                                </div>
+                                                        <div style={{ textAlign: 'right', fontSize: '0.875rem', marginLeft: '1rem' }}>
+                                                            {stratStats.totalBets > 0 ? (
+                                                                <>
+                                                                    <div className={stratStats.netProfit >= 0 ? 'profit' : 'loss'} style={{ fontWeight: 'bold', fontSize: '1.125rem' }}>
+                                                                        💰 R$ {stratStats.netProfit.toFixed(2)}
+                                                                    </div>
+                                                                    <div style={{ color: '#9ca3af' }}>
+                                                                        📈 ROI: {stratStats.roi}%
+                                                                    </div>
+                                                                    <div style={{ color: '#9ca3af' }}>
+                                                                        🎯 Avg: {stratStats.avgMatches}
+                                                                    </div>
+                                                                    <div style={{ color: '#6b7280', fontSize: '0.75rem' }}>
+                                                                        {stratStats.totalBets} apostas testadas
+                                                                    </div>
+                                                                </>
+                                                            ) : (
                                                                 <div style={{ color: '#6b7280' }}>
-                                                                    {stratStats.totalBets} apostas
+                                                                    Sem dados ainda
                                                                 </div>
-                                                            </div>
-                                                        )}
-                                                        {stratStats.totalBets === 0 && (
-                                                            <div style={{ textAlign: 'right', fontSize: '0.75rem', color: '#6b7280' }}>
-                                                                Sem dados ainda
-                                                            </div>
-                                                        )}
+                                                            )}
+                                                        </div>
                                                     </label>
                                                 );
                                             })}
                                         </div>
                                     </div>
 
+                                    {/* Botão Gerar */}
                                     <button
                                         onClick={generateBets}
-                                        disabled={generating || Object.values(selectedStrategies).every(v => !v)}
+                                        disabled={generating || selectedCount === 0 || totalBets === 0}
                                         style={{
                                             width: '100%',
-                                            background: generating ? '#6b7280' : '#10b981',
-                                            color: 'black',
+                                            background: generating || selectedCount === 0 || totalBets === 0 ? '#6b7280' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                            color: 'white',
                                             fontWeight: 'bold',
-                                            padding: '1.25rem',
-                                            borderRadius: '0.5rem',
-                                            fontSize: '1.25rem',
-                                            marginBottom: '1.5rem'
+                                            padding: '1.5rem',
+                                            borderRadius: '0.75rem',
+                                            fontSize: '1.5rem',
+                                            boxShadow: generating || selectedCount === 0 || totalBets === 0 ? 'none' : '0 10px 30px rgba(16, 185, 129, 0.4)'
                                         }}
                                     >
-                                        {generating ? '⏳ GERANDO...' : '🎲 GERAR APOSTAS AGORA'}
+                                        {generating ? '⏳ GERANDO...' : 
+                                         selectedCount === 0 ? '⚠️ SELECIONE PELO MENOS 1 ESTRATÉGIA' :
+                                         totalBets === 0 ? '⚠️ AUMENTE O INVESTIMENTO' :
+                                         `🎲 GERAR ${totalBets} APOSTA${totalBets > 1 ? 'S' : ''} POR R$ ${actualCost.toFixed(2)}`}
                                     </button>
 
-                                    <div style={{ background: 'rgba(59, 130, 246, 0.1)', borderRadius: '0.5rem', padding: '1rem', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                                    <div style={{ background: 'rgba(251, 191, 36, 0.1)', borderRadius: '0.5rem', padding: '1rem', marginTop: '1.5rem', border: '1px solid rgba(251, 191, 36, 0.3)' }}>
                                         <p style={{ fontSize: '0.875rem', color: '#9ca3af', lineHeight: '1.6' }}>
-                                            <strong style={{ color: '#3b82f6' }}>⚠️ IMPORTANTE:</strong><br />
-                                            As apostas geradas aqui são apenas para você acompanhar o desempenho das estratégias.<br />
-                                            Para jogar de verdade na Lotofácil, você precisa preencher o volante com os números gerados na lotérica ou pelo app da Caixa.<br />
-                                            Custo: R$ {betCost.toFixed(2)} por aposta.
+                                            <strong style={{ color: '#fbbf24' }}>⚠️ IMPORTANTE:</strong><br />
+                                            As apostas geradas aqui são para você acompanhar o desempenho.<br />
+                                            Para jogar de verdade, preencha o volante na lotérica ou app da Caixa com os números gerados.<br />
+                                            O sistema também gera apostas automaticamente TODO DIA às 00:00 para construir histórico! 🤖
                                         </p>
                                     </div>
                                 </div>
-
-                                {generatedBets.length > 0 && (
-                                    <div className="card" style={{ borderRadius: '0.75rem', padding: '1.5rem' }}>
-                                        <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#10b981' }}>
-                                            ✅ Últimas Apostas Geradas
-                                        </h3>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                            {generatedBets.map(bet => (
-                                                <div key={bet.id} style={{ background: 'rgba(30, 41, 59, 0.5)', borderRadius: '0.5rem', padding: '1rem' }}>
-                                                    <div style={{ marginBottom: '0.75rem' }}>
-                                                        <span className="strategy-badge" style={{ backgroundColor: STRATEGIES[bet.strategy].color }}>
-                                                            {STRATEGIES[bet.strategy].icon} {STRATEGIES[bet.strategy].name}
-                                                        </span>
-                                                    </div>
-                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                                        {bet.numbers.map(num => (
-                                                            <div key={num} className="number-ball">
-                                                                {num.toString().padStart(2, '0')}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         )}
 
@@ -665,174 +696,6 @@
                                             </div>
                                         </div>
                                     ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Simulator */}
-                        {activeTab === 'simulator' && (
-                            <div>
-                                <div className="card" style={{ borderRadius: '0.75rem', padding: '1.5rem', marginBottom: '1.5rem' }}>
-                                    <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1rem', color: '#10b981' }}>
-                                        💰 SIMULADOR DE INVESTIMENTO INTELIGENTE
-                                    </h2>
-                                    <div style={{ background: 'rgba(16, 185, 129, 0.1)', borderRadius: '0.5rem', padding: '1rem', marginBottom: '1.5rem', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-                                        <div style={{ fontSize: '0.875rem', color: '#10b981' }}>
-                                            <strong>💡 Como funciona:</strong><br />
-                                            Digite quanto quer investir e o sistema calcula EXATAMENTE quantas apostas você pode fazer.<br />
-                                            Cada aposta custa <strong>R$ {betCost.toFixed(2)}</strong>. Escolha as estratégias e veja seu investimento real!
-                                        </div>
-                                    </div>
-
-                                    <div style={{ marginBottom: '1.5rem' }}>
-                                        <label style={{ display: 'block', fontSize: '0.875rem', color: '#9ca3af', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                                            💵 Quanto você quer investir?
-                                        </label>
-                                        <input
-                                            type="number"
-                                            value={investmentAmount}
-                                            onChange={(e) => setInvestmentAmount(e.target.value)}
-                                            placeholder="Ex: 100"
-                                            style={{
-                                                width: '100%',
-                                                background: '#1e293b',
-                                                border: '2px solid #334155',
-                                                borderRadius: '0.5rem',
-                                                padding: '1rem',
-                                                color: 'white',
-                                                fontSize: '1.25rem',
-                                                fontWeight: 'bold'
-                                            }}
-                                        />
-                                    </div>
-
-                                    <div style={{ marginBottom: '1.5rem' }}>
-                                        <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', marginBottom: '1rem', color: '#10b981' }}>
-                                            🎯 Selecione as Estratégias
-                                        </h3>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '0.75rem' }}>
-                                            {Object.entries(STRATEGIES).map(([key, strategy]) => (
-                                                <label key={key} style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    padding: '0.75rem',
-                                                    background: selectedStrategies[key] ? 'rgba(16, 185, 129, 0.2)' : 'rgba(30, 41, 59, 0.5)',
-                                                    borderRadius: '0.5rem',
-                                                    cursor: 'pointer',
-                                                    border: `2px solid ${selectedStrategies[key] ? '#10b981' : 'transparent'}`,
-                                                    transition: 'all 0.3s'
-                                                }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedStrategies[key]}
-                                                        onChange={(e) => setSelectedStrategies({
-                                                            ...selectedStrategies,
-                                                            [key]: e.target.checked
-                                                        })}
-                                                        style={{ width: '20px', height: '20px', marginRight: '0.75rem', cursor: 'pointer' }}
-                                                    />
-                                                    <span style={{ fontSize: '1.25rem', marginRight: '0.5rem' }}>{strategy.icon}</span>
-                                                    <span style={{ fontSize: '0.875rem', fontWeight: 'bold' }}>{strategy.name}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <button
-                                        onClick={calculateInvestment}
-                                        style={{
-                                            width: '100%',
-                                            background: '#10b981',
-                                            color: 'black',
-                                            fontWeight: 'bold',
-                                            padding: '1.25rem',
-                                            borderRadius: '0.5rem',
-                                            fontSize: '1.25rem',
-                                            marginBottom: '1.5rem'
-                                        }}
-                                    >
-                                        🧮 CALCULAR INVESTIMENTO
-                                    </button>
-
-                                    {investmentCalc && (
-                                        <div style={{ background: 'linear-gradient(135deg, rgba(6, 78, 59, 0.3) 0%, rgba(5, 150, 105, 0.3) 100%)', borderRadius: '0.75rem', padding: '1.5rem', border: '2px solid #10b981' }}>
-                                            <h3 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1.5rem', color: '#10b981', textAlign: 'center' }}>
-                                                📊 RESULTADO DO CÁLCULO
-                                            </h3>
-
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-                                                <div style={{ background: 'rgba(30, 41, 59, 0.7)', borderRadius: '0.5rem', padding: '1rem', textAlign: 'center' }}>
-                                                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
-                                                        Você quer investir
-                                                    </div>
-                                                    <div style={{ fontSize: '1.875rem', fontWeight: 900, color: '#3b82f6' }}>
-                                                        R$ {investmentCalc.requestedAmount.toFixed(2)}
-                                                    </div>
-                                                </div>
-
-                                                <div style={{ background: 'rgba(30, 41, 59, 0.7)', borderRadius: '0.5rem', padding: '1rem', textAlign: 'center' }}>
-                                                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
-                                                        Você vai gastar
-                                                    </div>
-                                                    <div style={{ fontSize: '1.875rem', fontWeight: 900, color: '#10b981' }}>
-                                                        R$ {investmentCalc.actualCost.toFixed(2)}
-                                                    </div>
-                                                </div>
-
-                                                <div style={{ background: 'rgba(30, 41, 59, 0.7)', borderRadius: '0.5rem', padding: '1rem', textAlign: 'center' }}>
-                                                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
-                                                        Total de apostas
-                                                    </div>
-                                                    <div style={{ fontSize: '1.875rem', fontWeight: 900, color: '#fbbf24' }}>
-                                                        {investmentCalc.totalBets}
-                                                    </div>
-                                                </div>
-
-                                                <div style={{ background: 'rgba(30, 41, 59, 0.7)', borderRadius: '0.5rem', padding: '1rem', textAlign: 'center' }}>
-                                                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
-                                                        Troco
-                                                    </div>
-                                                    <div style={{ fontSize: '1.875rem', fontWeight: 900, color: investmentCalc.change > 0 ? '#10b981' : '#6b7280' }}>
-                                                        R$ {investmentCalc.change.toFixed(2)}
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div style={{ background: 'rgba(30, 41, 59, 0.7)', borderRadius: '0.5rem', padding: '1.5rem', marginBottom: '1.5rem' }}>
-                                                <h4 style={{ fontSize: '1.125rem', fontWeight: 'bold', marginBottom: '1rem', color: '#10b981' }}>
-                                                    📋 Distribuição por Estratégia
-                                                </h4>
-                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                                                    {Object.entries(investmentCalc.distribution).map(([strategy, count]) => (
-                                                        <div key={strategy} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'rgba(51, 65, 85, 0.5)', borderRadius: '0.5rem' }}>
-                                                            <div>
-                                                                <span style={{ fontSize: '1.25rem', marginRight: '0.5rem' }}>{STRATEGIES[strategy].icon}</span>
-                                                                <span style={{ fontSize: '0.875rem', fontWeight: 'bold' }}>{STRATEGIES[strategy].name}</span>
-                                                            </div>
-                                                            <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#10b981' }}>
-                                                                {count}x
-                                                            </span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            <div style={{ background: 'rgba(16, 185, 129, 0.1)', borderRadius: '0.5rem', padding: '1rem', border: '1px solid #10b981' }}>
-                                                <h4 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#10b981' }}>
-                                                    ✅ RESUMO
-                                                </h4>
-                                                <p style={{ fontSize: '0.875rem', color: '#9ca3af', lineHeight: '1.6' }}>
-                                                    Com <strong style={{ color: '#10b981' }}>R$ {investmentCalc.actualCost.toFixed(2)}</strong> você vai fazer{' '}
-                                                    <strong style={{ color: '#fbbf24' }}>{investmentCalc.totalBets} apostas</strong>{' '}
-                                                    ({investmentCalc.betsPerStrategy} de cada estratégia selecionada).<br />
-                                                    Custo por aposta: <strong style={{ color: '#10b981' }}>R$ {betCost.toFixed(2)}</strong><br />
-                                                    {investmentCalc.change > 0 && (
-                                                        <span>💰 Você economiza <strong style={{ color: '#10b981' }}>R$ {investmentCalc.change.toFixed(2)}</strong> que sobra de troco!</span>
-                                                    )}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         )}
