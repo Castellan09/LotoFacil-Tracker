@@ -3,127 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lotofácil Tracker - Sistema Automático 24/7</title>
+    <title>Lotofácil Tracker</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Space Mono', monospace;
-        }
-        
-        body {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
-            min-height: 100vh;
-            color: white;
-        }
-        
-        h1, h2, h3 {
-            font-family: 'Orbitron', sans-serif;
-            font-weight: 700;
-        }
-        
-        .glow {
-            text-shadow: 0 0 10px rgba(16, 185, 129, 0.5), 0 0 20px rgba(16, 185, 129, 0.3);
-        }
-        
-        .card {
-            background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%);
-            border: 1px solid rgba(16, 185, 129, 0.2);
-            transition: all 0.3s ease;
-        }
-        
-        .card:hover {
-            border-color: rgba(16, 185, 129, 0.5);
-            box-shadow: 0 0 30px rgba(16, 185, 129, 0.2);
-        }
-        
-        .number-ball {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
-        }
-        
-        .strategy-badge {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Space Mono', monospace; }
+        body { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%); min-height: 100vh; color: white; }
+        h1, h2, h3 { font-family: 'Orbitron', sans-serif; font-weight: 700; }
+        .glow { text-shadow: 0 0 10px rgba(16, 185, 129, 0.5); }
+        .card { background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%); border: 1px solid rgba(16, 185, 129, 0.2); transition: all 0.3s; }
+        .card:hover { border-color: rgba(16, 185, 129, 0.5); box-shadow: 0 0 30px rgba(16, 185, 129, 0.2); }
+        .number-ball { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; background: linear-gradient(135deg, #10b981 0%, #059669 100%); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); }
+        .strategy-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
         .profit { color: #10b981; }
         .loss { color: #ef4444; }
-        
-        .scan-line {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, #10b981, transparent);
-            animation: scan 3s linear infinite;
-            pointer-events: none;
-            z-index: 9999;
-        }
-        
-        @keyframes scan {
-            0% { transform: translateY(0); opacity: 0; }
-            50% { opacity: 1; }
-            100% { transform: translateY(100vh); opacity: 0; }
-        }
-
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.8; }
-        }
-        
-        .animate-spin {
-            animation: spin 1s linear infinite;
-        }
-
-        button {
-            transition: all 0.3s;
-            cursor: pointer;
-            border: none;
-        }
-
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .best-strategy {
-            animation: pulse 2s infinite;
-            border: 3px solid #fbbf24 !important;
-            box-shadow: 0 0 30px rgba(251, 191, 36, 0.6) !important;
-            position: relative;
-        }
-        
-        .best-strategy::before {
-            content: '🏆';
-            position: absolute;
-            top: -10px;
-            right: -10px;
-            font-size: 2rem;
-            animation: pulse 2s infinite;
-        }
+        .best-strategy { animation: pulse 2s infinite; border: 3px solid #fbbf24 !important; box-shadow: 0 0 30px rgba(251, 191, 36, 0.6) !important; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.8; } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .animate-spin { animation: spin 1s linear infinite; }
+        button { transition: all 0.3s; cursor: pointer; border: none; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        input[type="number"] { -moz-appearance: textfield; }
+        input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     </style>
 </head>
 <body>
@@ -131,7 +34,6 @@
 
     <script type="text/babel">
         const { useState, useEffect } = React;
-
         const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
 
         const STRATEGIES = {
@@ -150,58 +52,12 @@
             const [stats, setStats] = useState({});
             const [status, setStatus] = useState(null);
             const [loading, setLoading] = useState(true);
-            const [investmentAmount, setInvestmentAmount] = useState('100');
-            const [selectedStrategies, setSelectedStrategies] = useState({
-                weighted: true,
-                balanced: true,
-                moderate: true,
-                distributed: true,
-                intelligent: true,
-                random: true
-            });
             const [betCost, setBetCost] = useState(3.50);
-            const [nextDraw, setNextDraw] = useState(null);
-            const [countdown, setCountdown] = useState('');
+            const [investmentAmount, setInvestmentAmount] = useState('');
+            const [quantities, setQuantities] = useState({
+                weighted: 0, balanced: 0, moderate: 0, distributed: 0, intelligent: 0, random: 0
+            });
             const [generating, setGenerating] = useState(false);
-
-            const calculateNextDraw = () => {
-                const now = new Date();
-                const brTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
-                let next = new Date(brTime);
-                next.setHours(20, 0, 0, 0);
-                if (brTime.getHours() >= 20) {
-                    next.setDate(next.getDate() + 1);
-                }
-                while (next.getDay() === 0) {
-                    next.setDate(next.getDate() + 1);
-                }
-                return next;
-            };
-
-            const updateCountdown = () => {
-                const now = new Date();
-                const brTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
-                const next = calculateNextDraw();
-                const diff = next - brTime;
-                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                const weekdays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-                
-                setNextDraw({
-                    date: next,
-                    dayName: weekdays[next.getDay()],
-                    formatted: next.toLocaleDateString('pt-BR')
-                });
-                
-                if (days > 0) {
-                    setCountdown(`${days} dia${days > 1 ? 's' : ''}, ${hours}h ${minutes}min`);
-                } else if (hours > 0) {
-                    setCountdown(`${hours}h ${minutes}min`);
-                } else {
-                    setCountdown(`${minutes} minuto${minutes !== 1 ? 's' : ''}`);
-                }
-            };
 
             const fetchData = async () => {
                 try {
@@ -212,15 +68,9 @@
                         fetch(`${API_URL}/api/status`),
                         fetch(`${API_URL}/api/pricing`)
                     ]);
-
                     const [betsData, resultsData, statsData, statusData, pricingData] = await Promise.all([
-                        betsRes.json(),
-                        resultsRes.json(),
-                        statsRes.json(),
-                        statusRes.json(),
-                        pricingRes.json()
+                        betsRes.json(), resultsRes.json(), statsRes.json(), statusRes.json(), pricingRes.json()
                     ]);
-
                     setBets(betsData);
                     setResults(resultsData);
                     setStats(statsData);
@@ -228,56 +78,77 @@
                     setBetCost(pricingData.betCost);
                     setLoading(false);
                 } catch (error) {
-                    console.error('Erro ao buscar dados:', error);
+                    console.error('Error:', error);
                     setLoading(false);
-                }
-            };
-
-            const generateBets = async () => {
-                setGenerating(true);
-                try {
-                    await fetch(`${API_URL}/api/generate-bets`, { method: 'POST' });
-                    await fetchData();
-                    alert('✅ Apostas geradas com sucesso!');
-                } catch (error) {
-                    console.error('Erro ao gerar apostas:', error);
-                    alert('❌ Erro ao gerar apostas. Tente novamente.');
-                } finally {
-                    setGenerating(false);
                 }
             };
 
             useEffect(() => {
                 fetchData();
-                updateCountdown();
-                const dataInterval = setInterval(fetchData, 30000);
-                const countdownInterval = setInterval(updateCountdown, 60000);
-                return () => {
-                    clearInterval(dataInterval);
-                    clearInterval(countdownInterval);
-                };
+                const interval = setInterval(fetchData, 30000);
+                return () => clearInterval(interval);
             }, []);
 
-            const totalStats = {
-                totalBets: Object.values(stats).reduce((sum, s) => sum + (s.totalBets || 0), 0),
-                totalPrize: Object.values(stats).reduce((sum, s) => sum + (s.totalPrize || 0), 0),
-                totalCost: Object.values(stats).reduce((sum, s) => sum + (s.totalCost || 0), 0),
-                bestStrategy: Object.entries(stats).sort((a, b) => b[1].netProfit - a[1].netProfit)[0]?.[0],
-                betCost: betCost
-            };
+            // CÁLCULO CORRETO: R$ 35 ÷ 3.50 = 10 jogos
+            const amount = parseFloat(investmentAmount) || 0;
+            const maxBets = Math.floor(amount / betCost);
+            const totalSelected = Object.values(quantities).reduce((sum, q) => sum + q, 0);
+            const actualCost = totalSelected * betCost;
+            const change = amount - actualCost;
 
             const getBestStrategy = () => {
                 if (Object.keys(stats).length === 0) return null;
                 return Object.entries(stats).sort((a, b) => b[1].netProfit - a[1].netProfit)[0]?.[0];
             };
 
-            // Cálculo do investimento
-            const selectedCount = Object.values(selectedStrategies).filter(Boolean).length;
-            const maxBets = Math.floor(parseFloat(investmentAmount || 0) / betCost);
-            const betsPerStrategy = selectedCount > 0 ? Math.floor(maxBets / selectedCount) : 0;
-            const totalBets = betsPerStrategy * selectedCount;
-            const actualCost = totalBets * betCost;
-            const change = parseFloat(investmentAmount || 0) - actualCost;
+            const setQuantity = (strategy, value) => {
+                const newValue = Math.max(0, parseInt(value) || 0);
+                const currentTotal = Object.entries(quantities).reduce((sum, [key, q]) => 
+                    key === strategy ? sum : sum + q, 0
+                );
+                const availableSlots = maxBets - currentTotal;
+                const finalValue = Math.min(newValue, availableSlots);
+                setQuantities({ ...quantities, [strategy]: finalValue });
+            };
+
+            const distributeEvenly = () => {
+                const perStrategy = Math.floor(maxBets / 6);
+                setQuantities({
+                    weighted: perStrategy, balanced: perStrategy, moderate: perStrategy,
+                    distributed: perStrategy, intelligent: perStrategy, random: perStrategy
+                });
+            };
+
+            const generateBets = async () => {
+                if (totalSelected === 0) {
+                    alert('❌ Selecione pelo menos 1 aposta!');
+                    return;
+                }
+                setGenerating(true);
+                try {
+                    await fetch(`${API_URL}/api/generate-custom`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ distribution: quantities })
+                    });
+                    await fetchData();
+                    alert(`✅ ${totalSelected} apostas geradas!`);
+                    setQuantities({
+                        weighted: 0, balanced: 0, moderate: 0, distributed: 0, intelligent: 0, random: 0
+                    });
+                } catch (error) {
+                    alert('❌ Erro ao gerar apostas');
+                } finally {
+                    setGenerating(false);
+                }
+            };
+
+            const totalStats = {
+                totalBets: Object.values(stats).reduce((sum, s) => sum + (s.totalBets || 0), 0),
+                totalPrize: Object.values(stats).reduce((sum, s) => sum + (s.totalPrize || 0), 0),
+                totalCost: Object.values(stats).reduce((sum, s) => sum + (s.totalCost || 0), 0),
+                bestStrategy: getBestStrategy()
+            };
 
             if (loading) {
                 return (
@@ -289,103 +160,42 @@
 
             return (
                 <div style={{ minHeight: '100vh', padding: '2rem' }}>
-                    <div className="scan-line" />
-
-                    {/* Status Bar */}
-                    <div style={{
-                        position: 'fixed',
-                        bottom: '1rem',
-                        right: '1rem',
-                        zIndex: 40,
-                        background: 'rgba(30, 41, 59, 0.9)',
-                        backdropFilter: 'blur(8px)',
-                        border: '1px solid rgba(16, 185, 129, 0.3)',
-                        borderRadius: '0.5rem',
-                        padding: '0.75rem',
-                        fontSize: '0.75rem'
-                    }}>
+                    <div style={{ position: 'fixed', bottom: '1rem', right: '1rem', zIndex: 40, background: 'rgba(30, 41, 59, 0.9)', backdropFilter: 'blur(8px)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '0.5rem', padding: '0.75rem', fontSize: '0.75rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <div style={{
-                                width: '8px',
-                                height: '8px',
-                                borderRadius: '50%',
-                                background: '#10b981',
-                                animation: 'pulse 2s infinite'
-                            }} />
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', animation: 'pulse 2s infinite' }} />
                             <span style={{ color: '#10b981', fontWeight: 'bold' }}>SISTEMA ATIVO 24/7</span>
-                            {status && (
-                                <span style={{ color: '#6b7280', marginLeft: '0.5rem' }}>
-                                    | {status.pendingBets} pendentes
-                                </span>
-                            )}
+                            {status && <span style={{ color: '#6b7280', marginLeft: '0.5rem' }}>| {status.pendingBets} pendentes</span>}
                         </div>
                     </div>
 
                     <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
                         <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
-                            {/* Banner Próximo Sorteio */}
-                            {nextDraw && (
-                                <div style={{
-                                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.2) 100%)',
-                                    border: '2px solid #10b981',
-                                    borderRadius: '1rem',
-                                    padding: '1.5rem',
-                                    marginBottom: '1.5rem',
-                                    animation: 'pulse 2s infinite'
-                                }}>
-                                    <div style={{ fontSize: '1rem', color: '#10b981', fontWeight: 'bold', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                                        🎯 Próximo Sorteio
-                                    </div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: '900', color: 'white', marginBottom: '0.5rem' }}>
-                                        {nextDraw.dayName}, {nextDraw.formatted} às 20:00
-                                    </div>
-                                    <div style={{ fontSize: '1.125rem', color: '#9ca3af' }}>
-                                        ⏰ Faltam: <span style={{ color: '#10b981', fontWeight: 'bold' }}>{countdown}</span>
-                                    </div>
-                                </div>
-                            )}
-
                             <h1 className="glow" style={{ fontSize: '3rem', fontWeight: 900, marginBottom: '0.5rem' }}>
                                 <span style={{ color: '#10b981' }}>LOTO</span>FÁCIL TRACKER
                             </h1>
-                            <p style={{ color: '#9ca3af', fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                                🤖 Sistema Automático Rodando 24/7 no Servidor
+                            <p style={{ color: '#9ca3af', fontSize: '0.875rem', textTransform: 'uppercase' }}>
+                                🤖 Sistema Automático 24/7
                             </p>
                         </div>
 
-                        {/* Navigation */}
                         <div style={{ marginBottom: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center' }}>
                             {[
                                 { id: 'dashboard', label: '📊 Dashboard' },
-                                { id: 'generate', label: '🎲 Gerar Apostas' },
+                                { id: 'generate', label: '🎲 Gerar' },
                                 { id: 'bets', label: '📋 Apostas' },
                                 { id: 'history', label: '📅 Histórico' }
                             ].map(({ id, label }) => (
-                                <button
-                                    key={id}
-                                    onClick={() => setActiveTab(id)}
-                                    style={{
-                                        padding: '0.75rem 1.5rem',
-                                        borderRadius: '0.5rem',
-                                        fontWeight: 'bold',
-                                        textTransform: 'uppercase',
-                                        fontSize: '0.875rem',
-                                        background: activeTab === id ? '#10b981' : 'rgba(51, 65, 85, 0.5)',
-                                        color: activeTab === id ? 'black' : 'white'
-                                    }}
-                                >
+                                <button key={id} onClick={() => setActiveTab(id)} style={{ padding: '0.75rem 1.5rem', borderRadius: '0.5rem', fontWeight: 'bold', fontSize: '0.875rem', background: activeTab === id ? '#10b981' : 'rgba(51, 65, 85, 0.5)', color: activeTab === id ? 'black' : 'white' }}>
                                     {label}
                                 </button>
                             ))}
                         </div>
 
-                        {/* Dashboard */}
                         {activeTab === 'dashboard' && (
                             <div>
                                 <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '0.75rem', padding: '1rem', marginBottom: '1.5rem' }}>
                                     <div style={{ fontSize: '0.875rem', color: '#10b981', textAlign: 'center' }}>
-                                        💰 <strong>Custo por aposta:</strong> R$ {totalStats.betCost.toFixed(2)} | 
-                                        <strong> Total investido:</strong> {totalStats.totalBets} apostas × R$ {totalStats.betCost.toFixed(2)} = R$ {totalStats.totalCost.toFixed(2)}
+                                        💰 <strong>Custo:</strong> R$ {betCost.toFixed(2)} | <strong>Investido:</strong> R$ {totalStats.totalCost.toFixed(2)} ({totalStats.totalBets} apostas)
                                     </div>
                                 </div>
 
@@ -395,16 +205,12 @@
                                         <div style={{ fontSize: '1.875rem', fontWeight: 900, color: '#10b981' }}>{totalStats.totalBets}</div>
                                     </div>
                                     <div className="card" style={{ borderRadius: '0.75rem', padding: '1.5rem' }}>
-                                        <div style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.5rem' }}>PRÊMIOS TOTAIS</div>
-                                        <div style={{ fontSize: '1.875rem', fontWeight: 900, color: '#10b981' }}>
-                                            R$ {totalStats.totalPrize.toFixed(2)}
-                                        </div>
+                                        <div style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.5rem' }}>PRÊMIOS</div>
+                                        <div style={{ fontSize: '1.875rem', fontWeight: 900, color: '#10b981' }}>R$ {totalStats.totalPrize.toFixed(2)}</div>
                                     </div>
                                     <div className="card" style={{ borderRadius: '0.75rem', padding: '1.5rem' }}>
                                         <div style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.5rem' }}>INVESTIDO</div>
-                                        <div style={{ fontSize: '1.875rem', fontWeight: 900, color: '#f59e0b' }}>
-                                            R$ {totalStats.totalCost.toFixed(2)}
-                                        </div>
+                                        <div style={{ fontSize: '1.875rem', fontWeight: 900, color: '#f59e0b' }}>R$ {totalStats.totalCost.toFixed(2)}</div>
                                     </div>
                                     <div className="card" style={{ borderRadius: '0.75rem', padding: '1.5rem' }}>
                                         <div style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.5rem' }}>LUCRO/PREJUÍZO</div>
@@ -415,250 +221,153 @@
                                 </div>
 
                                 <div className="card" style={{ borderRadius: '0.75rem', padding: '1.5rem', marginBottom: '1.5rem' }}>
-                                    <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1.5rem', color: '#10b981' }}>
-                                        📈 RANKING DAS ESTRATÉGIAS
-                                    </h2>
+                                    <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1.5rem', color: '#10b981' }}>📈 RANKING</h2>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                        {Object.entries(stats)
-                                            .sort((a, b) => b[1].netProfit - a[1].netProfit)
-                                            .map(([key, stat], index) => (
-                                                <div key={key} style={{ background: 'rgba(30, 41, 59, 0.5)', borderRadius: '0.5rem', padding: '1rem' }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                        <div>
-                                                            <span style={{ fontSize: '1.5rem', marginRight: '0.75rem' }}>
-                                                                {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}º`}
-                                                            </span>
-                                                            <span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>{STRATEGIES[key].icon}</span>
-                                                            <span style={{ fontSize: '1.125rem', fontWeight: 'bold' }}>{STRATEGIES[key].name}</span>
-                                                            <span style={{ color: '#9ca3af', fontSize: '0.875rem', marginLeft: '0.75rem' }}>
-                                                                {stat.totalBets} apostas
-                                                            </span>
-                                                        </div>
-                                                        <div style={{ textAlign: 'right' }}>
-                                                            <div className={stat.netProfit >= 0 ? 'profit' : 'loss'} style={{ fontSize: '1.5rem', fontWeight: 900 }}>
-                                                                R$ {stat.netProfit.toFixed(2)}
-                                                            </div>
-                                                            <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
-                                                                ROI: {stat.roi}% | Média: {stat.avgMatches} acertos
-                                                            </div>
-                                                        </div>
+                                        {Object.entries(stats).sort((a, b) => b[1].netProfit - a[1].netProfit).map(([key, stat], index) => (
+                                            <div key={key} style={{ background: 'rgba(30, 41, 59, 0.5)', borderRadius: '0.5rem', padding: '1rem' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <div>
+                                                        <span style={{ fontSize: '1.5rem', marginRight: '0.75rem' }}>
+                                                            {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}º`}
+                                                        </span>
+                                                        <span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>{STRATEGIES[key].icon}</span>
+                                                        <span style={{ fontSize: '1.125rem', fontWeight: 'bold' }}>{STRATEGIES[key].name}</span>
+                                                        <span style={{ color: '#9ca3af', fontSize: '0.875rem', marginLeft: '0.75rem' }}>{stat.totalBets} apostas</span>
+                                                    </div>
+                                                    <div style={{ textAlign: 'right' }}>
+                                                        <div className={stat.netProfit >= 0 ? 'profit' : 'loss'} style={{ fontSize: '1.5rem', fontWeight: 900 }}>R$ {stat.netProfit.toFixed(2)}</div>
+                                                        <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>ROI: {stat.roi}% | Avg: {stat.avgMatches}</div>
                                                     </div>
                                                 </div>
-                                            ))}
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
 
                                 {totalStats.bestStrategy && (
-                                    <div className="card" style={{
-                                        borderRadius: '0.75rem',
-                                        padding: '1.5rem',
-                                        background: 'linear-gradient(135deg, rgba(6, 78, 59, 0.3) 0%, rgba(5, 150, 105, 0.3) 100%)',
-                                        borderColor: '#10b981',
-                                        textAlign: 'center'
-                                    }}>
-                                        <h3 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1rem', color: '#10b981' }}>
-                                            🏆 CAMPEÃ ABSOLUTA
-                                        </h3>
+                                    <div className="card" style={{ borderRadius: '0.75rem', padding: '1.5rem', background: 'linear-gradient(135deg, rgba(6, 78, 59, 0.3) 0%, rgba(5, 150, 105, 0.3) 100%)', borderColor: '#10b981', textAlign: 'center' }}>
+                                        <h3 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1rem', color: '#10b981' }}>🏆 CAMPEÃ</h3>
                                         <div style={{ fontSize: '2.5rem', fontWeight: 900, marginBottom: '0.5rem' }}>
                                             {STRATEGIES[totalStats.bestStrategy].icon} {STRATEGIES[totalStats.bestStrategy].name}
                                         </div>
                                         <div style={{ fontSize: '1.125rem', color: '#10b981', fontWeight: 'bold' }}>
-                                            Lucro Total: R$ {stats[totalStats.bestStrategy].netProfit.toFixed(2)}
+                                            Lucro: R$ {stats[totalStats.bestStrategy].netProfit.toFixed(2)}
                                         </div>
-                                        <p style={{ marginTop: '1rem', color: '#9ca3af' }}>
-                                            💡 Esta é a estratégia mais lucrativa até agora!
-                                        </p>
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        {/* Generate Bets - ABA UNIFICADA */}
                         {activeTab === 'generate' && (
                             <div>
                                 <div className="card" style={{ borderRadius: '0.75rem', padding: '1.5rem', marginBottom: '1.5rem' }}>
-                                    <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1rem', color: '#10b981' }}>
-                                        🎲 GERAR APOSTAS INTELIGENTES
-                                    </h2>
+                                    <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1rem', color: '#10b981' }}>🎲 GERAR APOSTAS</h2>
                                     
                                     <div style={{ background: 'rgba(16, 185, 129, 0.1)', borderRadius: '0.5rem', padding: '1rem', marginBottom: '1.5rem', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
                                         <div style={{ fontSize: '0.875rem', color: '#10b981' }}>
                                             <strong>💡 Como funciona:</strong><br />
                                             1. Digite quanto quer investir<br />
-                                            2. Veja quantas apostas pode fazer<br />
-                                            3. Selecione as estratégias (veja qual é a CAMPEÃ 🏆)<br />
-                                            4. Clique em GERAR e pronto!<br />
-                                            <strong>Custo:</strong> R$ {betCost.toFixed(2)} por aposta
+                                            2. Escolha QUANTAS de CADA estratégia<br />
+                                            3. Clique em GERAR!<br />
+                                            <strong>Custo:</strong> R$ {betCost.toFixed(2)}/aposta
                                         </div>
                                     </div>
 
-                                    {/* Campo de Investimento */}
                                     <div style={{ marginBottom: '1.5rem' }}>
                                         <label style={{ display: 'block', fontSize: '1rem', color: '#10b981', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                                            💵 Quanto você quer investir?
+                                            💵 Quanto quer investir?
                                         </label>
-                                        <input
-                                            type="number"
-                                            value={investmentAmount}
-                                            onChange={(e) => setInvestmentAmount(e.target.value)}
-                                            placeholder="Ex: 100"
-                                            style={{
-                                                width: '100%',
-                                                background: '#1e293b',
-                                                border: '2px solid #10b981',
-                                                borderRadius: '0.5rem',
-                                                padding: '1rem',
-                                                color: 'white',
-                                                fontSize: '1.5rem',
-                                                fontWeight: 'bold',
-                                                textAlign: 'center'
-                                            }}
-                                        />
+                                        <input type="number" value={investmentAmount} onChange={(e) => setInvestmentAmount(e.target.value)} placeholder="Ex: 35" min="0" step="0.50"
+                                            style={{ width: '100%', background: '#1e293b', border: '2px solid #10b981', borderRadius: '0.5rem', padding: '1rem', color: 'white', fontSize: '1.5rem', fontWeight: 'bold', textAlign: 'center' }} />
                                     </div>
 
-                                    {/* Resumo do Investimento */}
-                                    {investmentAmount && parseFloat(investmentAmount) > 0 && (
+                                    {amount > 0 && (
                                         <div style={{ background: 'rgba(59, 130, 246, 0.1)', borderRadius: '0.75rem', padding: '1rem', marginBottom: '1.5rem', border: '2px solid #3b82f6' }}>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', textAlign: 'center' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '1rem', textAlign: 'center' }}>
                                                 <div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase' }}>Você pode fazer</div>
-                                                    <div style={{ fontSize: '2rem', fontWeight: 900, color: '#3b82f6' }}>{totalBets} apostas</div>
+                                                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase' }}>Máximo</div>
+                                                    <div style={{ fontSize: '2rem', fontWeight: 900, color: '#3b82f6' }}>{maxBets}</div>
                                                 </div>
                                                 <div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase' }}>Vai gastar</div>
+                                                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase' }}>Selecionadas</div>
+                                                    <div style={{ fontSize: '2rem', fontWeight: 900, color: totalSelected > maxBets ? '#ef4444' : '#10b981' }}>{totalSelected}</div>
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase' }}>Custo</div>
                                                     <div style={{ fontSize: '2rem', fontWeight: 900, color: '#10b981' }}>R$ {actualCost.toFixed(2)}</div>
                                                 </div>
                                                 <div>
                                                     <div style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase' }}>Troco</div>
-                                                    <div style={{ fontSize: '2rem', fontWeight: 900, color: change > 0 ? '#fbbf24' : '#6b7280' }}>R$ {change.toFixed(2)}</div>
+                                                    <div style={{ fontSize: '2rem', fontWeight: 900, color: change >= 0 ? '#fbbf24' : '#ef4444' }}>R$ {change.toFixed(2)}</div>
                                                 </div>
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* Seleção de Estratégias com Stats */}
-                                    <div style={{ marginBottom: '1.5rem' }}>
-                                        <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', marginBottom: '1rem', color: '#10b981' }}>
-                                            🎯 Selecione as Estratégias
-                                        </h3>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                            {Object.entries(STRATEGIES).map(([key, strategy]) => {
-                                                const stratStats = stats[key] || { netProfit: 0, roi: '0.00', avgMatches: '0.00', totalBets: 0 };
-                                                const isBest = getBestStrategy() === key;
-                                                const betsForThis = selectedStrategies[key] ? betsPerStrategy : 0;
-                                                
-                                                return (
-                                                    <label 
-                                                        key={key} 
-                                                        className={isBest ? 'best-strategy' : ''} 
-                                                        style={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'space-between',
-                                                            padding: '1rem',
-                                                            background: selectedStrategies[key] ? 'rgba(16, 185, 129, 0.2)' : 'rgba(30, 41, 59, 0.5)',
-                                                            borderRadius: '0.75rem',
-                                                            cursor: 'pointer',
-                                                            border: `2px solid ${selectedStrategies[key] ? '#10b981' : 'transparent'}`,
-                                                            transition: 'all 0.3s',
-                                                            position: 'relative'
-                                                        }}
-                                                    >
-                                                        <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={selectedStrategies[key]}
-                                                                onChange={(e) => setSelectedStrategies({
-                                                                    ...selectedStrategies,
-                                                                    [key]: e.target.checked
-                                                                })}
-                                                                style={{ width: '24px', height: '24px', marginRight: '1rem', cursor: 'pointer' }}
-                                                            />
-                                                            <div>
+                                    {amount > 0 && maxBets > 0 && (
+                                        <>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                                <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', color: '#10b981' }}>🎯 Distribua suas {maxBets} apostas</h3>
+                                                <button onClick={distributeEvenly} style={{ padding: '0.5rem 1rem', background: '#3b82f6', color: 'white', borderRadius: '0.5rem', fontSize: '0.875rem', fontWeight: 'bold' }}>
+                                                    Distribuir Igual
+                                                </button>
+                                            </div>
+
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                                                {Object.entries(STRATEGIES).map(([key, strategy]) => {
+                                                    const stratStats = stats[key] || { netProfit: 0, roi: '0.00', avgMatches: '0.00', totalBets: 0 };
+                                                    const isBest = getBestStrategy() === key;
+                                                    
+                                                    return (
+                                                        <div key={key} className={isBest ? 'best-strategy' : ''} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'rgba(30, 41, 59, 0.5)', borderRadius: '0.75rem', border: `2px solid ${quantities[key] > 0 ? '#10b981' : 'transparent'}` }}>
+                                                            <div style={{ flex: 1 }}>
                                                                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.25rem' }}>
                                                                     <span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>{strategy.icon}</span>
                                                                     <span style={{ fontSize: '1rem', fontWeight: 'bold' }}>{strategy.name}</span>
-                                                                    {isBest && (
-                                                                        <span style={{ marginLeft: '0.5rem', padding: '0.25rem 0.75rem', background: '#fbbf24', color: 'black', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                                                                            🏆 CAMPEÃ
-                                                                        </span>
-                                                                    )}
+                                                                    {isBest && <span style={{ marginLeft: '0.5rem', padding: '0.25rem 0.75rem', background: '#fbbf24', color: 'black', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: 'bold' }}>🏆</span>}
                                                                 </div>
-                                                                {betsForThis > 0 && (
-                                                                    <div style={{ fontSize: '0.875rem', color: '#10b981', fontWeight: 'bold' }}>
-                                                                        → {betsForThis} aposta{betsForThis > 1 ? 's' : ''} desta (R$ {(betsForThis * betCost).toFixed(2)})
+                                                                {stratStats.totalBets > 0 && (
+                                                                    <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                                                                        💰 R$ {stratStats.netProfit.toFixed(2)} | ROI: {stratStats.roi}%
                                                                     </div>
                                                                 )}
                                                             </div>
-                                                        </div>
-                                                        
-                                                        <div style={{ textAlign: 'right', fontSize: '0.875rem', marginLeft: '1rem' }}>
-                                                            {stratStats.totalBets > 0 ? (
-                                                                <>
-                                                                    <div className={stratStats.netProfit >= 0 ? 'profit' : 'loss'} style={{ fontWeight: 'bold', fontSize: '1.125rem' }}>
-                                                                        💰 R$ {stratStats.netProfit.toFixed(2)}
-                                                                    </div>
-                                                                    <div style={{ color: '#9ca3af' }}>
-                                                                        📈 ROI: {stratStats.roi}%
-                                                                    </div>
-                                                                    <div style={{ color: '#9ca3af' }}>
-                                                                        🎯 Avg: {stratStats.avgMatches}
-                                                                    </div>
-                                                                    <div style={{ color: '#6b7280', fontSize: '0.75rem' }}>
-                                                                        {stratStats.totalBets} apostas testadas
-                                                                    </div>
-                                                                </>
-                                                            ) : (
-                                                                <div style={{ color: '#6b7280' }}>
-                                                                    Sem dados ainda
+                                                            
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                                <input type="number" value={quantities[key]} onChange={(e) => setQuantity(key, e.target.value)} min="0" max={maxBets}
+                                                                    style={{ width: '80px', background: '#1e293b', border: '2px solid #10b981', borderRadius: '0.5rem', padding: '0.5rem', color: 'white', fontSize: '1.25rem', fontWeight: 'bold', textAlign: 'center' }} />
+                                                                <div style={{ fontSize: '0.875rem', color: '#9ca3af', minWidth: '80px' }}>
+                                                                    = R$ {(quantities[key] * betCost).toFixed(2)}
                                                                 </div>
-                                                            )}
+                                                            </div>
                                                         </div>
-                                                    </label>
-                                                );
-                                            })}
+                                                    );
+                                                })}
+                                            </div>
+
+                                            <button onClick={generateBets} disabled={generating || totalSelected === 0 || totalSelected > maxBets}
+                                                style={{ width: '100%', background: generating || totalSelected === 0 || totalSelected > maxBets ? '#6b7280' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white', fontWeight: 'bold', padding: '1.5rem', borderRadius: '0.75rem', fontSize: '1.5rem' }}>
+                                                {generating ? '⏳ GERANDO...' : 
+                                                 totalSelected === 0 ? '⚠️ SELECIONE PELO MENOS 1' :
+                                                 totalSelected > maxBets ? `⚠️ LIMITE: ${maxBets}` :
+                                                 `🎲 GERAR ${totalSelected} APOSTA${totalSelected > 1 ? 'S' : ''} (R$ ${actualCost.toFixed(2)})`}
+                                            </button>
+                                        </>
+                                    )}
+
+                                    {amount === 0 && (
+                                        <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
+                                            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💵</div>
+                                            <p>Digite quanto quer investir</p>
                                         </div>
-                                    </div>
-
-                                    {/* Botão Gerar */}
-                                    <button
-                                        onClick={generateBets}
-                                        disabled={generating || selectedCount === 0 || totalBets === 0}
-                                        style={{
-                                            width: '100%',
-                                            background: generating || selectedCount === 0 || totalBets === 0 ? '#6b7280' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                            color: 'white',
-                                            fontWeight: 'bold',
-                                            padding: '1.5rem',
-                                            borderRadius: '0.75rem',
-                                            fontSize: '1.5rem',
-                                            boxShadow: generating || selectedCount === 0 || totalBets === 0 ? 'none' : '0 10px 30px rgba(16, 185, 129, 0.4)'
-                                        }}
-                                    >
-                                        {generating ? '⏳ GERANDO...' : 
-                                         selectedCount === 0 ? '⚠️ SELECIONE PELO MENOS 1 ESTRATÉGIA' :
-                                         totalBets === 0 ? '⚠️ AUMENTE O INVESTIMENTO' :
-                                         `🎲 GERAR ${totalBets} APOSTA${totalBets > 1 ? 'S' : ''} POR R$ ${actualCost.toFixed(2)}`}
-                                    </button>
-
-                                    <div style={{ background: 'rgba(251, 191, 36, 0.1)', borderRadius: '0.5rem', padding: '1rem', marginTop: '1.5rem', border: '1px solid rgba(251, 191, 36, 0.3)' }}>
-                                        <p style={{ fontSize: '0.875rem', color: '#9ca3af', lineHeight: '1.6' }}>
-                                            <strong style={{ color: '#fbbf24' }}>⚠️ IMPORTANTE:</strong><br />
-                                            As apostas geradas aqui são para você acompanhar o desempenho.<br />
-                                            Para jogar de verdade, preencha o volante na lotérica ou app da Caixa com os números gerados.<br />
-                                            O sistema também gera apostas automaticamente TODO DIA às 00:00 para construir histórico! 🤖
-                                        </p>
-                                    </div>
+                                    )}
                                 </div>
                             </div>
                         )}
 
-                        {/* Bets */}
                         {activeTab === 'bets' && (
                             <div className="card" style={{ borderRadius: '0.75rem', padding: '1.5rem' }}>
-                                <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1.5rem', color: '#10b981' }}>
-                                    🎲 APOSTAS RECENTES
-                                </h2>
+                                <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1.5rem', color: '#10b981' }}>🎲 APOSTAS RECENTES</h2>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                     {bets.slice(0, 50).map(bet => (
                                         <div key={bet.id} style={{ background: 'rgba(30, 41, 59, 0.5)', borderRadius: '0.5rem', padding: '1rem' }}>
@@ -673,25 +382,15 @@
                                                 </div>
                                                 {bet.result_numbers && (
                                                     <div>
-                                                        <span style={{ color: '#10b981', fontWeight: 'bold', marginRight: '0.75rem' }}>
-                                                            {bet.matches} acertos
-                                                        </span>
-                                                        {bet.prize > 0 && (
-                                                            <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>
-                                                                R$ {parseFloat(bet.prize).toFixed(2)}
-                                                            </span>
-                                                        )}
+                                                        <span style={{ color: '#10b981', fontWeight: 'bold', marginRight: '0.75rem' }}>{bet.matches} acertos</span>
+                                                        {bet.prize > 0 && <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>R$ {parseFloat(bet.prize).toFixed(2)}</span>}
                                                     </div>
                                                 )}
-                                                {!bet.result_numbers && (
-                                                    <span style={{ color: '#fbbf24', fontSize: '0.875rem' }}>⏳ Pendente</span>
-                                                )}
+                                                {!bet.result_numbers && <span style={{ color: '#fbbf24', fontSize: '0.875rem' }}>⏳ Pendente</span>}
                                             </div>
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                                                 {bet.numbers.map(num => (
-                                                    <div key={num} className="number-ball">
-                                                        {num.toString().padStart(2, '0')}
-                                                    </div>
+                                                    <div key={num} className="number-ball">{num.toString().padStart(2, '0')}</div>
                                                 ))}
                                             </div>
                                         </div>
@@ -700,12 +399,9 @@
                             </div>
                         )}
 
-                        {/* History */}
                         {activeTab === 'history' && (
                             <div className="card" style={{ borderRadius: '0.75rem', padding: '1.5rem' }}>
-                                <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1.5rem', color: '#10b981' }}>
-                                    📅 HISTÓRICO DE RESULTADOS
-                                </h2>
+                                <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1.5rem', color: '#10b981' }}>📅 HISTÓRICO</h2>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                                     {results.map(result => {
                                         const resultBets = bets.filter(b => b.contest_number === result.contest_number);
@@ -713,25 +409,17 @@
                                             <div key={result.id} style={{ background: 'rgba(30, 41, 59, 0.5)', borderRadius: '0.5rem', padding: '1.5rem' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                                                     <div>
-                                                        <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>
-                                                            📅 {new Date(result.date).toLocaleDateString('pt-BR')}
-                                                        </h3>
-                                                        <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
-                                                            Concurso: {result.contest_number} | {result.bets_checked} apostas conferidas
-                                                        </div>
+                                                        <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>📅 {new Date(result.date).toLocaleDateString('pt-BR')}</h3>
+                                                        <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Concurso: {result.contest_number} | {result.bets_checked} apostas</div>
                                                     </div>
                                                     <div style={{ textAlign: 'right' }}>
                                                         <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Prêmio Total</div>
-                                                        <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#10b981' }}>
-                                                            R$ {parseFloat(result.total_prize).toFixed(2)}
-                                                        </div>
+                                                        <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#10b981' }}>R$ {parseFloat(result.total_prize).toFixed(2)}</div>
                                                     </div>
                                                 </div>
 
                                                 <div style={{ marginBottom: '1rem' }}>
-                                                    <div style={{ fontSize: '0.875rem', color: '#9ca3af', marginBottom: '0.5rem' }}>
-                                                        Números Sorteados
-                                                    </div>
+                                                    <div style={{ fontSize: '0.875rem', color: '#9ca3af', marginBottom: '0.5rem' }}>Números Sorteados</div>
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                                                         {result.numbers.map(num => (
                                                             <div key={num} className="number-ball" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}>
@@ -750,14 +438,8 @@
                                                                         {STRATEGIES[bet.strategy].icon} {STRATEGIES[bet.strategy].name}
                                                                     </span>
                                                                     <div>
-                                                                        <span style={{ color: '#10b981', fontWeight: 'bold', marginRight: '0.75rem' }}>
-                                                                            {bet.matches} acertos
-                                                                        </span>
-                                                                        {bet.prize > 0 && (
-                                                                            <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>
-                                                                                R$ {parseFloat(bet.prize).toFixed(2)}
-                                                                            </span>
-                                                                        )}
+                                                                        <span style={{ color: '#10b981', fontWeight: 'bold', marginRight: '0.75rem' }}>{bet.matches} acertos</span>
+                                                                        {bet.prize > 0 && <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>R$ {parseFloat(bet.prize).toFixed(2)}</span>}
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -771,7 +453,8 @@
                                     {results.length === 0 && (
                                         <div style={{ textAlign: 'center', color: '#9ca3af', padding: '3rem' }}>
                                             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📅</div>
-                                            <p>Aguardando primeiros resultados...</p>
+                                            <p>Aguardando resultados...</p>
+                                            <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>Sistema confere a cada 1 hora</p>
                                         </div>
                                     )}
                                 </div>
