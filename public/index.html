@@ -17,6 +17,9 @@
         .card:hover { border-color: rgba(16, 185, 129, 0.5); box-shadow: 0 0 30px rgba(16, 185, 129, 0.2); }
         .number-ball { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; background: linear-gradient(135deg, #10b981 0%, #059669 100%); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); }
         .strategy-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
+        .source-badge { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-left: 8px; display: inline-block; }
+        .auto-badge { background: rgba(59, 130, 246, 0.3); color: #3b82f6; border: 1px solid #3b82f6; }
+        .manual-badge { background: rgba(251, 191, 36, 0.3); color: #fbbf24; border: 1px solid #fbbf24; }
         .profit { color: #10b981; }
         .loss { color: #ef4444; }
         .best-strategy { animation: pulse 2s infinite; border: 3px solid #fbbf24 !important; box-shadow: 0 0 30px rgba(251, 191, 36, 0.6) !important; }
@@ -49,7 +52,7 @@
             const [activeTab, setActiveTab] = useState('dashboard');
             const [bets, setBets] = useState([]);
             const [results, setResults] = useState([]);
-            const [stats, setStats] = useState({});
+            const [stats, setStats] = useState({ all: {}, auto: {}, manual: {} });
             const [status, setStatus] = useState(null);
             const [loading, setLoading] = useState(true);
             const [betCost, setBetCost] = useState(3.50);
@@ -58,6 +61,56 @@
                 weighted: 0, balanced: 0, moderate: 0, distributed: 0, intelligent: 0, random: 0
             });
             const [generating, setGenerating] = useState(false);
+            const [generatedBets, setGeneratedBets] = useState([]);
+            const [nextDraw, setNextDraw] = useState(null);
+            const [countdown, setCountdown] = useState('');
+
+            // Calcula próximo sorteio (Seg-Sáb às 20:00, DOM não tem)
+            const calculateNextDraw = () => {
+                const now = new Date();
+                const brTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+                let next = new Date(brTime);
+                next.setHours(20, 0, 0, 0);
+                
+                // Se já passou das 20:00, vai pro próximo dia
+                if (brTime.getHours() >= 20) {
+                    next.setDate(next.getDate() + 1);
+                }
+                
+                // Pula domingo (não tem sorteio)
+                while (next.getDay() === 0) {
+                    next.setDate(next.getDate() + 1);
+                }
+                
+                return next;
+            };
+
+            const updateCountdown = () => {
+                const now = new Date();
+                const brTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+                const next = calculateNextDraw();
+                const diff = next - brTime;
+                
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                
+                const weekdays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+                
+                setNextDraw({
+                    date: next,
+                    dayName: weekdays[next.getDay()],
+                    formatted: next.toLocaleDateString('pt-BR')
+                });
+                
+                if (days > 0) {
+                    setCountdown(`${days} dia${days > 1 ? 's' : ''}, ${hours}h ${minutes}min`);
+                } else if (hours > 0) {
+                    setCountdown(`${hours}h ${minutes}min`);
+                } else {
+                    setCountdown(`${minutes} minuto${minutes !== 1 ? 's' : ''}`);
+                }
+            };
 
             const fetchData = async () => {
                 try {
@@ -85,11 +138,15 @@
 
             useEffect(() => {
                 fetchData();
-                const interval = setInterval(fetchData, 30000);
-                return () => clearInterval(interval);
+                updateCountdown();
+                const dataInterval = setInterval(fetchData, 30000);
+                const countdownInterval = setInterval(updateCountdown, 60000);
+                return () => {
+                    clearInterval(dataInterval);
+                    clearInterval(countdownInterval);
+                };
             }, []);
 
-            // CÁLCULO CORRETO: R$ 35 ÷ 3.50 = 10 jogos
             const amount = parseFloat(investmentAmount) || 0;
             const maxBets = Math.floor(amount / betCost);
             const totalSelected = Object.values(quantities).reduce((sum, q) => sum + q, 0);
@@ -97,8 +154,8 @@
             const change = amount - actualCost;
 
             const getBestStrategy = () => {
-                if (Object.keys(stats).length === 0) return null;
-                return Object.entries(stats).sort((a, b) => b[1].netProfit - a[1].netProfit)[0]?.[0];
+                if (Object.keys(stats.all).length === 0) return null;
+                return Object.entries(stats.all).sort((a, b) => b[1].netProfit - a[1].netProfit)[0]?.[0];
             };
 
             const setQuantity = (strategy, value) => {
@@ -125,13 +182,16 @@
                     return;
                 }
                 setGenerating(true);
+                setGeneratedBets([]);
                 try {
-                    await fetch(`${API_URL}/api/generate-custom`, {
+                    const response = await fetch(`${API_URL}/api/generate-custom`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ distribution: quantities })
                     });
+                    const data = await response.json();
                     await fetchData();
+                    setGeneratedBets(data.bets || []);
                     alert(`✅ ${totalSelected} apostas geradas!`);
                     setQuantities({
                         weighted: 0, balanced: 0, moderate: 0, distributed: 0, intelligent: 0, random: 0
@@ -144,10 +204,16 @@
             };
 
             const totalStats = {
-                totalBets: Object.values(stats).reduce((sum, s) => sum + (s.totalBets || 0), 0),
-                totalPrize: Object.values(stats).reduce((sum, s) => sum + (s.totalPrize || 0), 0),
-                totalCost: Object.values(stats).reduce((sum, s) => sum + (s.totalCost || 0), 0),
+                totalBets: Object.values(stats.all).reduce((sum, s) => sum + (s.totalBets || 0), 0),
+                totalPrize: Object.values(stats.all).reduce((sum, s) => sum + (s.totalPrize || 0), 0),
+                totalCost: Object.values(stats.all).reduce((sum, s) => sum + (s.totalCost || 0), 0),
                 bestStrategy: getBestStrategy()
+            };
+
+            const totalStatsManual = {
+                totalBets: Object.values(stats.manual).reduce((sum, s) => sum + (s.totalBets || 0), 0),
+                totalPrize: Object.values(stats.manual).reduce((sum, s) => sum + (s.totalPrize || 0), 0),
+                totalCost: Object.values(stats.manual).reduce((sum, s) => sum + (s.totalCost || 0), 0)
             };
 
             if (loading) {
@@ -170,6 +236,36 @@
 
                     <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
                         <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+                            {/* BANNER PRÓXIMO SORTEIO */}
+                            {nextDraw && (
+                                <div style={{
+                                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.2) 100%)',
+                                    border: '2px solid #10b981',
+                                    borderRadius: '1rem',
+                                    padding: '1.5rem',
+                                    marginBottom: '1.5rem',
+                                    animation: 'pulse 2s infinite'
+                                }}>
+                                    <div style={{ fontSize: '1rem', color: '#10b981', fontWeight: 'bold', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                                        🎯 Próximo Sorteio
+                                    </div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: '900', color: 'white', marginBottom: '0.5rem' }}>
+                                        {nextDraw.dayName}, {nextDraw.formatted} às 20:00
+                                    </div>
+                                    {status && status.lastContest && (
+                                        <div style={{ fontSize: '0.875rem', color: '#9ca3af', marginBottom: '0.5rem' }}>
+                                            Concurso esperado: #{status.lastContest + 1}
+                                        </div>
+                                    )}
+                                    <div style={{ fontSize: '1.125rem', color: '#9ca3af' }}>
+                                        ⏰ Faltam: <span style={{ color: '#10b981', fontWeight: 'bold' }}>{countdown}</span>
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.5rem' }}>
+                                        Sorteios: Segunda a Sábado (6x/semana)
+                                    </div>
+                                </div>
+                            )}
+
                             <h1 className="glow" style={{ fontSize: '3rem', fontWeight: 900, marginBottom: '0.5rem' }}>
                                 <span style={{ color: '#10b981' }}>LOTO</span>FÁCIL TRACKER
                             </h1>
@@ -195,7 +291,7 @@
                             <div>
                                 <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '0.75rem', padding: '1rem', marginBottom: '1.5rem' }}>
                                     <div style={{ fontSize: '0.875rem', color: '#10b981', textAlign: 'center' }}>
-                                        💰 <strong>Custo:</strong> R$ {betCost.toFixed(2)} | <strong>Investido:</strong> R$ {totalStats.totalCost.toFixed(2)} ({totalStats.totalBets} apostas)
+                                        💰 <strong>Custo:</strong> R$ {betCost.toFixed(2)} | <strong>Total Investido:</strong> R$ {totalStats.totalCost.toFixed(2)} ({totalStats.totalBets} apostas)
                                     </div>
                                 </div>
 
@@ -221,9 +317,9 @@
                                 </div>
 
                                 <div className="card" style={{ borderRadius: '0.75rem', padding: '1.5rem', marginBottom: '1.5rem' }}>
-                                    <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1.5rem', color: '#10b981' }}>📈 RANKING</h2>
+                                    <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1.5rem', color: '#10b981' }}>📈 RANKING GERAL</h2>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                        {Object.entries(stats).sort((a, b) => b[1].netProfit - a[1].netProfit).map(([key, stat], index) => (
+                                        {Object.entries(stats.all).sort((a, b) => b[1].netProfit - a[1].netProfit).map(([key, stat], index) => (
                                             <div key={key} style={{ background: 'rgba(30, 41, 59, 0.5)', borderRadius: '0.5rem', padding: '1rem' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                     <div>
@@ -244,6 +340,32 @@
                                     </div>
                                 </div>
 
+                                {totalStatsManual.totalBets > 0 && (
+                                    <div className="card" style={{ borderRadius: '0.75rem', padding: '1.5rem', marginBottom: '1.5rem', background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(245, 158, 11, 0.1) 100%)', borderColor: '#fbbf24' }}>
+                                        <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1rem', color: '#fbbf24' }}>🎲 APOSTAS GERADAS POR VOCÊ</h2>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '0.5rem' }}>APOSTAS</div>
+                                                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#fbbf24' }}>{totalStatsManual.totalBets}</div>
+                                            </div>
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '0.5rem' }}>PRÊMIOS</div>
+                                                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#10b981' }}>R$ {totalStatsManual.totalPrize.toFixed(2)}</div>
+                                            </div>
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '0.5rem' }}>INVESTIDO</div>
+                                                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#f59e0b' }}>R$ {totalStatsManual.totalCost.toFixed(2)}</div>
+                                            </div>
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '0.5rem' }}>LUCRO/PREJUÍZO</div>
+                                                <div className={totalStatsManual.totalPrize - totalStatsManual.totalCost >= 0 ? 'profit' : 'loss'} style={{ fontSize: '1.5rem', fontWeight: 900 }}>
+                                                    R$ {(totalStatsManual.totalPrize - totalStatsManual.totalCost).toFixed(2)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {totalStats.bestStrategy && (
                                     <div className="card" style={{ borderRadius: '0.75rem', padding: '1.5rem', background: 'linear-gradient(135deg, rgba(6, 78, 59, 0.3) 0%, rgba(5, 150, 105, 0.3) 100%)', borderColor: '#10b981', textAlign: 'center' }}>
                                         <h3 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1rem', color: '#10b981' }}>🏆 CAMPEÃ</h3>
@@ -251,7 +373,7 @@
                                             {STRATEGIES[totalStats.bestStrategy].icon} {STRATEGIES[totalStats.bestStrategy].name}
                                         </div>
                                         <div style={{ fontSize: '1.125rem', color: '#10b981', fontWeight: 'bold' }}>
-                                            Lucro: R$ {stats[totalStats.bestStrategy].netProfit.toFixed(2)}
+                                            Lucro: R$ {stats.all[totalStats.bestStrategy].netProfit.toFixed(2)}
                                         </div>
                                     </div>
                                 )}
@@ -315,7 +437,7 @@
 
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
                                                 {Object.entries(STRATEGIES).map(([key, strategy]) => {
-                                                    const stratStats = stats[key] || { netProfit: 0, roi: '0.00', avgMatches: '0.00', totalBets: 0 };
+                                                    const stratStats = stats.all[key] || { netProfit: 0, roi: '0.00', avgMatches: '0.00', totalBets: 0 };
                                                     const isBest = getBestStrategy() === key;
                                                     
                                                     return (
@@ -362,21 +484,47 @@
                                         </div>
                                     )}
                                 </div>
+
+                                {generatedBets.length > 0 && (
+                                    <div className="card" style={{ borderRadius: '0.75rem', padding: '1.5rem', background: 'linear-gradient(135deg, rgba(6, 78, 59, 0.3) 0%, rgba(5, 150, 105, 0.3) 100%)', borderColor: '#10b981' }}>
+                                        <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1.5rem', color: '#10b981' }}>✅ APOSTAS GERADAS AGORA!</h2>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                            {generatedBets.map(bet => (
+                                                <div key={bet.id} style={{ background: 'rgba(30, 41, 59, 0.5)', borderRadius: '0.5rem', padding: '1rem' }}>
+                                                    <div style={{ marginBottom: '0.75rem' }}>
+                                                        <span className="strategy-badge" style={{ backgroundColor: STRATEGIES[bet.strategy].color }}>
+                                                            {STRATEGIES[bet.strategy].icon} {STRATEGIES[bet.strategy].name}
+                                                        </span>
+                                                        <span className="manual-badge source-badge">🎲 GERADA POR VOCÊ</span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                        {bet.numbers.map(num => (
+                                                            <div key={num} className="number-ball">{num.toString().padStart(2, '0')}</div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
                         {activeTab === 'bets' && (
                             <div className="card" style={{ borderRadius: '0.75rem', padding: '1.5rem' }}>
-                                <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1.5rem', color: '#10b981' }}>🎲 APOSTAS RECENTES</h2>
+                                <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1.5rem', color: '#10b981' }}>🎲 TODAS AS APOSTAS</h2>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                     {bets.slice(0, 50).map(bet => (
                                         <div key={bet.id} style={{ background: 'rgba(30, 41, 59, 0.5)', borderRadius: '0.5rem', padding: '1rem' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                                                <div>
+                                                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                                                     <span className="strategy-badge" style={{ backgroundColor: STRATEGIES[bet.strategy].color }}>
                                                         {STRATEGIES[bet.strategy].icon} {STRATEGIES[bet.strategy].name}
                                                     </span>
-                                                    <span style={{ marginLeft: '1rem', color: '#9ca3af', fontSize: '0.875rem' }}>
+                                                    <span className={`source-badge ${bet.type === 'auto' ? 'auto-badge' : 'manual-badge'}`}>
+                                                        {bet.type === 'auto' ? '🤖 AUTOMÁTICA' : '🎲 GERADA POR VOCÊ'}
+                                                    </span>
+                                                    <span style={{ color: '#9ca3af', fontSize: '0.875rem' }}>
                                                         {new Date(bet.date).toLocaleDateString('pt-BR')}
                                                     </span>
                                                 </div>
@@ -410,7 +558,7 @@
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                                                     <div>
                                                         <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>📅 {new Date(result.date).toLocaleDateString('pt-BR')}</h3>
-                                                        <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Concurso: {result.contest_number} | {result.bets_checked} apostas</div>
+                                                        <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Concurso: #{result.contest_number} | {result.bets_checked} apostas</div>
                                                     </div>
                                                     <div style={{ textAlign: 'right' }}>
                                                         <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Prêmio Total</div>
@@ -433,10 +581,15 @@
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                                         {resultBets.map(bet => (
                                                             <div key={bet.id} style={{ background: 'rgba(51, 65, 85, 0.5)', borderRadius: '0.25rem', padding: '0.75rem' }}>
-                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                    <span className="strategy-badge" style={{ backgroundColor: STRATEGIES[bet.strategy].color }}>
-                                                                        {STRATEGIES[bet.strategy].icon} {STRATEGIES[bet.strategy].name}
-                                                                    </span>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                                    <div>
+                                                                        <span className="strategy-badge" style={{ backgroundColor: STRATEGIES[bet.strategy].color }}>
+                                                                            {STRATEGIES[bet.strategy].icon} {STRATEGIES[bet.strategy].name}
+                                                                        </span>
+                                                                        <span className={`source-badge ${bet.type === 'auto' ? 'auto-badge' : 'manual-badge'}`}>
+                                                                            {bet.type === 'auto' ? '🤖 AUTO' : '🎲 VOCÊ'}
+                                                                        </span>
+                                                                    </div>
                                                                     <div>
                                                                         <span style={{ color: '#10b981', fontWeight: 'bold', marginRight: '0.75rem' }}>{bet.matches} acertos</span>
                                                                         {bet.prize > 0 && <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>R$ {parseFloat(bet.prize).toFixed(2)}</span>}
@@ -454,7 +607,7 @@
                                         <div style={{ textAlign: 'center', color: '#9ca3af', padding: '3rem' }}>
                                             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📅</div>
                                             <p>Aguardando resultados...</p>
-                                            <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>Sistema confere a cada 1 hora</p>
+                                            <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>Sistema confere a cada 1 hora (6 sorteios/semana)</p>
                                         </div>
                                     )}
                                 </div>
