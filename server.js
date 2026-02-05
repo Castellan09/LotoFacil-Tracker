@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
 const cron = require('node-cron');
-const fetch = require('node-fetch');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -15,6 +14,36 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
+
+// ==================== CONSTANTS ====================
+
+const PRICING = { betCost: 3.50 };
+
+// VALORES REAIS DOS PRÊMIOS LOTOFÁCIL
+const PRIZE_VALUES = {
+    15: 850000,  // Média do prêmio principal (varia)
+    14: 1400,    // Média do prêmio de 14 acertos (varia)
+    13: 35,      // FIXO
+    12: 14,      // FIXO
+    11: 7,       // FIXO
+    10: 0,       // Não ganha nada
+    9: 0,
+    8: 0,
+    7: 0,
+    6: 0,
+    5: 0,
+    4: 0,
+    3: 0,
+    2: 0,
+    1: 0,
+    0: 0
+};
+
+function getTodayBrazil() {
+    const now = new Date();
+    const brazilTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+    return brazilTime.toISOString().split('T')[0];
+}
 
 // ==================== DATABASE ====================
 
@@ -53,13 +82,15 @@ async function initializeDatabase() {
                 numbers INTEGER[] NOT NULL,
                 date DATE NOT NULL,
                 total_prize DECIMAL(10, 2) DEFAULT 0,
+                total_cost DECIMAL(10, 2) DEFAULT 0,
+                balance DECIMAL(10, 2) DEFAULT 0,
                 bets_checked INTEGER DEFAULT 0,
-                prize_11 DECIMAL(10, 2) DEFAULT 0,
-                prize_12 DECIMAL(10, 2) DEFAULT 0,
-                prize_13 DECIMAL(10, 2) DEFAULT 0,
-                prize_14 DECIMAL(10, 2) DEFAULT 0,
-                prize_15 DECIMAL(10, 2) DEFAULT 0,
-                source VARCHAR(50) DEFAULT 'api',
+                prize_11 DECIMAL(10, 2) DEFAULT 7,
+                prize_12 DECIMAL(10, 2) DEFAULT 14,
+                prize_13 DECIMAL(10, 2) DEFAULT 35,
+                prize_14 DECIMAL(10, 2) DEFAULT 1400,
+                prize_15 DECIMAL(10, 2) DEFAULT 850000,
+                source VARCHAR(50) DEFAULT 'manual',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
@@ -67,7 +98,13 @@ async function initializeDatabase() {
         await pool.query(`
             DO $$ BEGIN 
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='results' AND column_name='source') THEN
-                    ALTER TABLE results ADD COLUMN source VARCHAR(50) DEFAULT 'api';
+                    ALTER TABLE results ADD COLUMN source VARCHAR(50) DEFAULT 'manual';
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='results' AND column_name='total_cost') THEN
+                    ALTER TABLE results ADD COLUMN total_cost DECIMAL(10, 2) DEFAULT 0;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='results' AND column_name='balance') THEN
+                    ALTER TABLE results ADD COLUMN balance DECIMAL(10, 2) DEFAULT 0;
                 END IF;
             END $$;
         `);
@@ -76,14 +113,6 @@ async function initializeDatabase() {
     } catch (error) {
         console.error('❌ Database error:', error);
     }
-}
-
-const PRICING = { betCost: 3.50 };
-
-function getTodayBrazil() {
-    const now = new Date();
-    const brazilTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
-    return brazilTime.toISOString().split('T')[0];
 }
 
 // ==================== BET GENERATION ====================
@@ -208,8 +237,9 @@ function generateRandomBet() {
 async function generateDailyBets() {
     console.log('');
     console.log('═══════════════════════════════════════');
-    console.log('🎲 GERANDO APOSTAS DIÁRIAS');
+    console.log('🎲 GERANDO 6 APOSTAS DIÁRIAS');
     console.log('═══════════════════════════════════════');
+    
     const strategies = [
         { name: 'weighted', fn: generateWeightedBet },
         { name: 'balanced', fn: generateBalancedBet },
@@ -218,6 +248,7 @@ async function generateDailyBets() {
         { name: 'intelligent', fn: generateIntelligentBet },
         { name: 'random', fn: generateRandomBet }
     ];
+    
     const today = getTodayBrazil();
     console.log(`📅 Data: ${today}`);
     console.log('');
@@ -238,173 +269,14 @@ async function generateDailyBets() {
             console.error(`❌ ${strategy.name}:`, error.message);
         }
     }
-    console.log('');
-    console.log('✅ APOSTAS DIÁRIAS GERADAS!');
-    console.log('═══════════════════════════════════════');
-    console.log('');
-}
-
-// ==================== RESULT FETCHING (MÚLTIPLAS FONTES) ====================
-
-async function tryFetchFromGoogle() {
-    console.log('🔍 Fonte 1: Tentando Google...');
-    try {
-        const response = await fetch('https://www.google.com/search?q=resultado+lotofacil+de+hoje', {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html',
-                'Accept-Language': 'pt-BR,pt;q=0.9'
-            },
-            timeout: 10000
-        });
-        
-        if (!response.ok) {
-            console.log(`❌ Google retornou: ${response.status}`);
-            return null;
-        }
-        
-        const html = await response.text();
-        
-        // Tenta extrair números do HTML do Google
-        const numberRegex = /\b(0[1-9]|1[0-9]|2[0-5])\b/g;
-        const matches = html.match(numberRegex);
-        
-        if (matches && matches.length >= 15) {
-            const numbers = [...new Set(matches.slice(0, 15).map(n => parseInt(n)))];
-            if (numbers.length === 15) {
-                console.log(`✅ Google: Encontrado! [${numbers.join(', ')}]`);
-                
-                // Tenta extrair concurso
-                const contestRegex = /concurso[^\d]*(\d{4})/i;
-                const contestMatch = html.match(contestRegex);
-                const contestNumber = contestMatch ? parseInt(contestMatch[1]) : null;
-                
-                return {
-                    contestNumber: contestNumber || 9999,
-                    numbers: numbers.sort((a, b) => a - b),
-                    date: getTodayBrazil(),
-                    prizes: { 11: 6, 12: 12, 13: 30, 14: 1500, 15: 1000000 },
-                    source: 'google'
-                };
-            }
-        }
-        
-        console.log('❌ Google: Não encontrou números válidos');
-        return null;
-    } catch (error) {
-        console.log(`❌ Google erro: ${error.message}`);
-        return null;
-    }
-}
-
-async function tryFetchFromCaixa() {
-    console.log('🔍 Fonte 2: Tentando API Caixa...');
-    try {
-        const response = await fetch('https://servicebus2.caixa.gov.br/portaldeloterias/api/lotofacil', {
-            headers: {
-                'User-Agent': 'Mozilla/5.0',
-                'Accept': 'application/json'
-            },
-            timeout: 10000
-        });
-        
-        if (!response.ok) {
-            console.log(`❌ API Caixa retornou: ${response.status}`);
-            return null;
-        }
-        
-        const data = await response.json();
-        console.log(`✅ API Caixa: Concurso ${data.numero}`);
-        
-        const prizes = { 11: 0, 12: 0, 13: 0, 14: 0, 15: 0 };
-        if (data.listaRateioPremio && Array.isArray(data.listaRateioPremio)) {
-            data.listaRateioPremio.forEach(item => {
-                const faixa = parseInt(item.faixa);
-                const valor = parseFloat(item.valorPremio) || 0;
-                if (faixa === 1) prizes[15] = valor;
-                else if (faixa === 2) prizes[14] = valor;
-                else if (faixa === 3) prizes[13] = valor;
-                else if (faixa === 4) prizes[12] = valor;
-                else if (faixa === 5) prizes[11] = valor;
-            });
-        }
-        
-        return {
-            contestNumber: parseInt(data.numero),
-            numbers: data.dezenasSorteadasOrdemSorteio.map(n => parseInt(n)),
-            date: data.dataApuracao,
-            prizes: prizes,
-            source: 'api_caixa'
-        };
-    } catch (error) {
-        console.log(`❌ API Caixa erro: ${error.message}`);
-        return null;
-    }
-}
-
-async function tryFetchFromLoteriasAPI() {
-    console.log('🔍 Fonte 3: Tentando Loterias.com.br...');
-    try {
-        const response = await fetch('https://loteriascaixa-api.herokuapp.com/api/lotofacil/latest', {
-            headers: {
-                'User-Agent': 'Mozilla/5.0',
-                'Accept': 'application/json'
-            },
-            timeout: 10000
-        });
-        
-        if (!response.ok) {
-            console.log(`❌ Loterias API retornou: ${response.status}`);
-            return null;
-        }
-        
-        const data = await response.json();
-        console.log(`✅ Loterias API: Concurso ${data.concurso}`);
-        
-        return {
-            contestNumber: parseInt(data.concurso),
-            numbers: data.dezenas.map(n => parseInt(n)),
-            date: data.data,
-            prizes: { 11: 6, 12: 12, 13: 30, 14: 1500, 15: 1500000 },
-            source: 'loterias_api'
-        };
-    } catch (error) {
-        console.log(`❌ Loterias API erro: ${error.message}`);
-        return null;
-    }
-}
-
-async function fetchLatestResult() {
-    console.log('');
-    console.log('═══════════════════════════════════════');
-    console.log('🔍 BUSCANDO RESULTADO (MÚLTIPLAS FONTES)');
-    console.log('═══════════════════════════════════════');
     
-    // Tenta todas as fontes em ordem
-    const sources = [
-        tryFetchFromGoogle,
-        tryFetchFromCaixa,
-        tryFetchFromLoteriasAPI
-    ];
-    
-    for (const sourceFn of sources) {
-        const result = await sourceFn();
-        if (result) {
-            console.log(`✅ SUCESSO! Fonte: ${result.source}`);
-            console.log(`📊 Concurso: ${result.contestNumber}`);
-            console.log(`🎲 Números: [${result.numbers.join(', ')}]`);
-            console.log('═══════════════════════════════════════');
-            console.log('');
-            return result;
-        }
-    }
-    
-    console.log('❌ TODAS AS FONTES FALHARAM');
-    console.log('💡 Use o botão "INSERIR RESULTADO" no site');
+    console.log('');
+    console.log('✅ 6 APOSTAS DIÁRIAS GERADAS!');
     console.log('═══════════════════════════════════════');
     console.log('');
-    return null;
 }
+
+// ==================== RESULT CHECKING ====================
 
 async function checkBetsWithResult(resultData) {
     console.log('');
@@ -423,28 +295,10 @@ async function checkBetsWithResult(resultData) {
             [resultData.contestNumber]
         );
         
-        if (existing.rows.length === 0) {
-            console.log('🆕 Salvando novo resultado...');
-            await pool.query(
-                `INSERT INTO results (
-                    contest_number, numbers, date,
-                    prize_11, prize_12, prize_13, prize_14, prize_15, source
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                [
-                    resultData.contestNumber,
-                    resultData.numbers,
-                    resultData.date,
-                    resultData.prizes[11],
-                    resultData.prizes[12],
-                    resultData.prizes[13],
-                    resultData.prizes[14],
-                    resultData.prizes[15],
-                    resultData.source
-                ]
-            );
-            console.log('✅ Resultado salvo!');
-        } else {
-            console.log(`ℹ️ Concurso ${resultData.contestNumber} já existe`);
+        if (existing.rows.length > 0) {
+            console.log(`ℹ️ Concurso ${resultData.contestNumber} já conferido`);
+            console.log('═══════════════════════════════════════');
+            return { success: true, checked: 0, totalPrize: 0, message: 'Já conferido' };
         }
         
         const pending = await pool.query(
@@ -454,8 +308,7 @@ async function checkBetsWithResult(resultData) {
         if (pending.rows.length === 0) {
             console.log('ℹ️ Sem apostas pendentes');
             console.log('═══════════════════════════════════════');
-            console.log('');
-            return { success: true, checked: 0, totalPrize: 0 };
+            return { success: true, checked: 0, totalPrize: 0, message: 'Sem apostas pendentes' };
         }
         
         console.log(`📋 ${pending.rows.length} apostas pendentes`);
@@ -464,6 +317,7 @@ async function checkBetsWithResult(resultData) {
         console.log('─────────────────────────────────────────');
         
         let totalPrize = 0;
+        let totalCost = 0;
         let checkedCount = 0;
         
         for (const bet of pending.rows) {
@@ -473,6 +327,7 @@ async function checkBetsWithResult(resultData) {
             
             const prize = resultData.prizes[matches] || 0;
             totalPrize += prize;
+            totalCost += PRICING.betCost;
             
             await pool.query(
                 `UPDATE bets 
@@ -487,33 +342,47 @@ async function checkBetsWithResult(resultData) {
             console.log(`${prizeEmoji} #${bet.id} ${typeEmoji} ${bet.strategy.padEnd(15)} → ${matches} acertos → R$ ${prize.toFixed(2)}`);
         }
         
+        const balance = totalPrize - totalCost;
+        
+        console.log('🆕 Salvando resultado...');
         await pool.query(
-            'UPDATE results SET total_prize = $1, bets_checked = $2 WHERE contest_number = $3',
-            [totalPrize, checkedCount, resultData.contestNumber]
+            `INSERT INTO results (
+                contest_number, numbers, date,
+                prize_11, prize_12, prize_13, prize_14, prize_15, 
+                source, total_prize, total_cost, balance, bets_checked
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+            [
+                resultData.contestNumber,
+                resultData.numbers,
+                resultData.date,
+                resultData.prizes[11],
+                resultData.prizes[12],
+                resultData.prizes[13],
+                resultData.prizes[14],
+                resultData.prizes[15],
+                resultData.source,
+                totalPrize,
+                totalCost,
+                balance,
+                checkedCount
+            ]
         );
+        console.log('✅ Resultado salvo!');
         
         console.log('─────────────────────────────────────────');
         console.log('');
         console.log(`✅ ${checkedCount} APOSTAS CONFERIDAS!`);
-        console.log(`💰 Prêmio: R$ ${totalPrize.toFixed(2)}`);
-        console.log(`💵 Custo: R$ ${(checkedCount * PRICING.betCost).toFixed(2)}`);
-        console.log(`📊 Saldo: R$ ${(totalPrize - (checkedCount * PRICING.betCost)).toFixed(2)}`);
+        console.log(`💰 Prêmios: R$ ${totalPrize.toFixed(2)}`);
+        console.log(`💵 Investimento: R$ ${totalCost.toFixed(2)}`);
+        console.log(`📊 Saldo do Dia: R$ ${balance.toFixed(2)} ${balance >= 0 ? '✅' : '❌'}`);
         console.log('═══════════════════════════════════════');
         console.log('');
         
-        return { success: true, checked: checkedCount, totalPrize: totalPrize };
+        return { success: true, checked: checkedCount, totalPrize, balance };
     } catch (error) {
         console.error('❌ ERRO:', error);
         console.log('═══════════════════════════════════════');
-        console.log('');
         return { success: false, error: error.message };
-    }
-}
-
-async function checkPendingBets() {
-    const result = await fetchLatestResult();
-    if (result) {
-        await checkBetsWithResult(result);
     }
 }
 
@@ -597,64 +466,70 @@ app.get('/api/status', async (req, res) => {
     try {
         const pending = await pool.query('SELECT COUNT(*) FROM bets WHERE result_numbers IS NULL');
         const lastBet = await pool.query('SELECT date FROM bets ORDER BY date DESC LIMIT 1');
-        const lastResult = await pool.query('SELECT date, contest_number FROM results ORDER BY date DESC LIMIT 1');
+        const lastResult = await pool.query('SELECT date, contest_number, balance FROM results ORDER BY date DESC LIMIT 1');
+        
+        // Saldo total de todos os resultados
+        const totalBalanceQuery = await pool.query('SELECT COALESCE(SUM(balance), 0) as total_balance FROM results');
+        const totalBalance = parseFloat(totalBalanceQuery.rows[0].total_balance);
+        
         res.json({
             status: 'active',
             pendingBets: parseInt(pending.rows[0].count),
             lastBetDate: lastBet.rows[0]?.date || null,
             lastResultDate: lastResult.rows[0]?.date || null,
-            lastContest: lastResult.rows[0]?.contest_number || null
+            lastContest: lastResult.rows[0]?.contest_number || null,
+            lastBalance: lastResult.rows[0]?.balance || 0,
+            totalBalance: totalBalance
         });
     } catch { res.status(500).json({ error: 'Erro' }); }
 });
 
 app.get('/api/pricing', (req, res) => res.json(PRICING));
 
-app.get('/api/test-fetch', async (req, res) => {
-    console.log('🧪 TESTE MANUAL SOLICITADO');
-    const result = await fetchLatestResult();
-    if (result) {
-        res.json({ success: true, data: result });
-    } else {
-        res.status(500).json({ success: false, message: 'Nenhuma fonte funcionou' });
-    }
-});
-
-app.post('/api/force-check', async (req, res) => {
-    console.log('🔄 CHECAGEM FORÇADA');
-    await checkPendingBets();
-    res.json({ success: true });
-});
-
 app.post('/api/insert-result', async (req, res) => {
     try {
-        const { contestNumber, numbers, date, prizes } = req.body;
+        const { contestNumber, numbers, date } = req.body;
         
-        console.log('✍️ INSERÇÃO MANUAL');
+        console.log('✍️ INSERÇÃO MANUAL DE RESULTADO');
         
         if (!contestNumber || !numbers || numbers.length !== 15) {
             return res.status(400).json({ 
                 success: false, 
-                error: 'Dados inválidos' 
+                error: 'Dados inválidos. Precisa de contestNumber e 15 números únicos.' 
+            });
+        }
+        
+        if (new Set(numbers).size !== 15) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Os 15 números devem ser únicos!' 
             });
         }
         
         const resultData = {
             contestNumber: parseInt(contestNumber),
-            numbers: numbers.map(n => parseInt(n)),
+            numbers: numbers.map(n => parseInt(n)).sort((a, b) => a - b),
             date: date || getTodayBrazil(),
-            prizes: prizes || { 11: 6, 12: 12, 13: 30, 14: 1500, 15: 1000000 },
+            prizes: PRIZE_VALUES,
             source: 'manual'
         };
         
         const checkResult = await checkBetsWithResult(resultData);
         
-        res.json({ 
-            success: true, 
-            message: `${checkResult.checked} apostas conferidas!`,
-            checked: checkResult.checked,
-            totalPrize: checkResult.totalPrize
-        });
+        if (checkResult.success) {
+            res.json({ 
+                success: true, 
+                message: `✅ ${checkResult.checked} apostas conferidas!`,
+                checked: checkResult.checked,
+                totalPrize: checkResult.totalPrize,
+                balance: checkResult.balance
+            });
+        } else {
+            res.status(500).json({ 
+                success: false, 
+                error: checkResult.error || 'Erro ao conferir apostas' 
+            });
+        }
     } catch (error) {
         console.error('❌ Erro:', error);
         res.status(500).json({ success: false, error: error.message });
@@ -664,13 +539,6 @@ app.post('/api/insert-result', async (req, res) => {
 app.post('/api/generate-bets', async (req, res) => {
     try {
         await generateDailyBets();
-        res.json({ success: true });
-    } catch { res.status(500).json({ error: 'Erro' }); }
-});
-
-app.post('/api/check-bets', async (req, res) => {
-    try {
-        await checkPendingBets();
         res.json({ success: true });
     } catch { res.status(500).json({ error: 'Erro' }); }
 });
@@ -708,14 +576,10 @@ app.post('/api/generate-custom', async (req, res) => {
 
 // ==================== CRON ====================
 
+// Gera 6 apostas TODO DIA às 00:00 BRT
 cron.schedule('0 0 * * *', () => {
-    console.log('⏰ [CRON] Geração diária');
+    console.log('⏰ [CRON] Geração diária de 6 apostas (00:00 BRT)');
     generateDailyBets();
-}, { timezone: "America/Sao_Paulo" });
-
-cron.schedule('0 * * * *', () => {
-    console.log('⏰ [CRON] Tentando conferir (múltiplas fontes)');
-    checkPendingBets();
 }, { timezone: "America/Sao_Paulo" });
 
 // ==================== START ====================
@@ -730,24 +594,25 @@ async function startServer() {
             console.log('═══════════════════════════════════════');
             console.log(`📡 Porta: ${port}`);
             console.log(`✅ Database: OK`);
-            console.log(`📅 Hoje: ${getTodayBrazil()}`);
+            console.log(`📅 Hoje (Brasil): ${getTodayBrazil()}`);
             console.log('');
-            console.log('⏰ CRON:');
-            console.log('   📅 Gerar: TODO DIA 00:00 BRT');
-            console.log('   🔍 Conferir: A CADA 1 HORA (múltiplas fontes)');
+            console.log('⏰ CRON JOBS:');
+            console.log('   📅 Gerar 6 apostas: TODO DIA 00:00 BRT');
             console.log('');
-            console.log('🔍 FONTES DE DADOS:');
-            console.log('   1. Google (web scraping)');
-            console.log('   2. API Caixa');
-            console.log('   3. Loterias API alternativa');
-            console.log('   4. Inserção manual (fallback)');
+            console.log('💰 VALORES DE PRÊMIOS:');
+            console.log('   15 acertos: R$ 850.000,00 (média)');
+            console.log('   14 acertos: R$ 1.400,00 (média)');
+            console.log('   13 acertos: R$ 35,00 (fixo)');
+            console.log('   12 acertos: R$ 14,00 (fixo)');
+            console.log('   11 acertos: R$ 7,00 (fixo)');
+            console.log('   10 ou menos: R$ 0,00 (prejuízo)');
             console.log('');
-            console.log('💰 Custo: R$ 3,50/aposta');
+            console.log('💵 Custo por aposta: R$ 3,50');
             console.log('═══════════════════════════════════════');
             console.log('');
         });
     } catch (error) {
-        console.error('❌ Erro:', error);
+        console.error('❌ Erro ao iniciar:', error);
         process.exit(1);
     }
 }
